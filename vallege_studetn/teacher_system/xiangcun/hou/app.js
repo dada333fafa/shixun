@@ -1,0 +1,67 @@
+const express = require('express');
+const cors = require('cors');
+const dotenv = require('dotenv');
+const path = require('path');
+const connectDB = require('./config/db');
+
+// 加载环境变量
+dotenv.config();
+
+// 连接数据库
+connectDB();
+
+// 初始化Express应用
+const app = express();
+
+// 中间件配置
+app.use(cors());
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+// 静态文件服务（用于上传的文件）
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
+// 路由配置
+app.use('/api/v1/auth', require('./routes/authRoutes'));
+app.use('/api/v1/teachers', require('./routes/teacherRoutes'));
+app.use('/api/v1/students', require('./routes/studentRoutes'));
+app.use('/api/v1/matches', require('./routes/matchRoutes'));
+app.use('/api/v1/messages', require('./routes/messageRoutes'));
+app.use('/api/v1/resources', require('./routes/resourceRoutes'));
+app.use('/api/v1/psychological', require('./routes/psychologicalRoutes'));
+app.use('/api/v1/learning-progress', require('./routes/learningProgressRoutes'));
+
+// 健康检查路由
+app.get('/api/health', (req, res) => {
+  res.json({
+    status: 'success',
+    message: '乡村助学平台API运行正常',
+    timestamp: new Date().toISOString()
+  });
+});
+
+// 404处理
+app.use((req, res) => {
+  res.status(404).json({
+    status: 'error',
+    message: '请求的资源不存在'
+  });
+});
+
+// 全局错误处理
+app.use((err, req, res, next) => {
+  console.error(err.stack);
+  res.status(err.statusCode || 500).json({
+    status: 'error',
+    message: err.message || '服务器内部错误'
+  });
+});
+
+// 启动服务器
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+  console.log(`🚀 服务器运行在端口 ${PORT}`);
+  console.log(`📡 API地址: http://localhost:${PORT}/api`);
+});
+
+module.exports = app;
