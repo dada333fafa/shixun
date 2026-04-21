@@ -1,0 +1,58 @@
+// 测试前后端连接
+async function testConnection() {
+  console.log('开始测试前后端连接...');
+
+  try {
+    // 测试后端API连接
+    console.log('1. 测试后端API连接...');
+    const response = await fetch('http://localhost:5000/', {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    });
+
+    if (response.ok) {
+      const data = await response.text();
+      console.log('✅ 后端API连接成功:', data);
+    } else {
+      console.log('❌ 后端API连接失败:', response.status);
+    }
+  } catch (error) {
+    console.log('❌ 后端API连接错误:', error.message);
+  }
+
+  try {
+    // 测试用户注册API
+    console.log('\n2. 测试用户注册API...');
+    const registerResponse = await fetch('http://localhost:5000/api/users/register', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        username: 'testuser',
+        password: 'testpass123',
+        role: 'student',
+        name: '测试用户',
+        email: 'test@example.com',
+        phone: '13800138000'
+      })
+    });
+
+    if (registerResponse.ok) {
+      const data = await registerResponse.json();
+      console.log('✅ 用户注册API测试成功');
+    } else {
+      const errorData = await registerResponse.json();
+      console.log('⚠️  用户注册API返回错误（这可能是正常的，如果用户已存在）:', errorData);
+    }
+  } catch (error) {
+    console.log('❌ 用户注册API连接错误:', error.message);
+  }
+
+  console.log('\n测试完成！');
+}
+
+// 运行测试
+testConnection();
