@@ -88,7 +88,7 @@
             <span class="tag">{{ getResourceTypeName(resource.resourceType) }}</span>
             <span class="tag">{{ formatDate(resource.createdAt) }}</span>
           </div>
-          <button class="btn-download" @click="handleDownload(resource._id)">
+          <button class="btn-download" @click="handleDownload(resource)">
             {{ getResourceIcon(resource.resourceType) }} 下载资源
           </button>
         </div>
@@ -210,12 +210,42 @@ function formatDate(dateString) {
   return `${year}-${month}-${day}`
 }
 
-async function handleDownload(resourceId) {
+async function handleDownload(resource) {
   try {
-    const result = await downloadResource(resourceId)
-    const resource = result.resource
+    console.log('下载资源:', resource)
     
-    alert(`资源准备完成：\n\n标题：${resource.title}\n类型：${resource.resourceType}\n教师：${resource.teacherName}\n\n注意：由于没有实际文件，这里只是模拟下载。`)
+    if (!resource.file_path && !resource.filePath) {
+      alert('该资源没有上传文件')
+      return
+    }
+    
+    // 确保 filePath 以 / 开头
+    let cleanPath = resource.file_path || resource.filePath
+    if (!cleanPath.startsWith('/')) {
+      cleanPath = '/' + cleanPath
+    }
+    
+    // 从服务器下载文件
+    const downloadUrl = `http://localhost:3000${cleanPath}`
+    console.log('下载URL:', downloadUrl)
+    
+    // 使用 fetch 获取文件内容
+    const response = await fetch(downloadUrl)
+    if (!response.ok) {
+      throw new Error('下载失败: ' + response.status)
+    }
+    
+    const blob = await response.blob()
+    const url = window.URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    // 直接使用原始文件名
+    link.download = resource.file_name || resource.fileName || resource.title || 'download'
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    window.URL.revokeObjectURL(url)
+    console.log('下载成功:', resource.title)
   } catch (error) {
     console.error('下载失败:', error)
     alert('下载失败: ' + error.message)
@@ -281,7 +311,8 @@ function handleLogout() {
 
 .main-content {
   flex: 1;
-  padding: 20px;
+  padding: 20px 20px 20px 0;
+  overflow-y: auto;
 }
 
 .header {

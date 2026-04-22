@@ -1,10 +1,10 @@
 // API 配置文件
-const API_BASE_URL = 'http://localhost:5001'; // 更新为新端口
+const API_BASE_URL = 'http://localhost:3000'; // 统一使用合并后的后端
 
 // 用户注册
 async function registerUser(userData) {
   try {
-    const response = await fetch(`${API_BASE_URL}/api/users/register`, {
+    const response = await fetch(`${API_BASE_URL}/api/v1/auth/register`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -29,7 +29,7 @@ async function registerUser(userData) {
 // 用户登录
 async function loginUser(credentials) {
   try {
-    const response = await fetch(`${API_BASE_URL}/api/users/login`, {
+    const response = await fetch(`${API_BASE_URL}/api/v1/auth/login`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -64,7 +64,7 @@ async function getCurrentUser() {
       throw new Error('未找到认证令牌');
     }
     
-    const response = await fetch(`${API_BASE_URL}/api/users/me`, {
+    const response = await fetch(`${API_BASE_URL}/api/v1/auth/me`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
@@ -171,16 +171,16 @@ async function sendMessage(receiverId, content, matchId = null) {
       throw new Error('未找到认证令牌');
     }
 
-    const response = await fetch(`${API_BASE_URL}/api/messages`, {
+    const response = await fetch(`${API_BASE_URL}/api/v1/messages`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'x-auth-token': token
+        'Authorization': `Bearer ${token}`
       },
       body: JSON.stringify({
-        receiverId,
+        receiver_id: receiverId,  // 使用 receiver_id 匹配后端
         content,
-        matchId
+        match_id: matchId || undefined
       })
     });
 
@@ -206,11 +206,11 @@ async function getMessages(userId) {
       throw new Error('未找到认证令牌');
     }
 
-    const response = await fetch(`${API_BASE_URL}/api/messages/${userId}`, {
+    const response = await fetch(`${API_BASE_URL}/api/v1/messages?user_id=${userId}`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
-        'x-auth-token': token
+        'Authorization': `Bearer ${token}`
       }
     });
 
@@ -236,11 +236,11 @@ async function getConversations() {
       throw new Error('未找到认证令牌');
     }
 
-    const response = await fetch(`${API_BASE_URL}/api/messages/conversations/list`, {
+    const response = await fetch(`${API_BASE_URL}/api/v1/messages/list`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
-        'x-auth-token': token
+        'Authorization': `Bearer ${token}`
       }
     });
 
@@ -266,11 +266,11 @@ async function getTeachers() {
       throw new Error('未找到认证令牌');
     }
 
-    const response = await fetch(`${API_BASE_URL}/api/users/teachers`, {
+    const response = await fetch(`${API_BASE_URL}/api/v1/teachers`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
-        'x-auth-token': token
+        'Authorization': `Bearer ${token}`
       }
     });
 

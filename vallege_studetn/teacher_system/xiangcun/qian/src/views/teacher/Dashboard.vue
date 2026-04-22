@@ -27,22 +27,22 @@
         <div class="card">
           <div class="card-icon">👨‍🎓</div>
           <h3>辅导学生</h3>
-          <p>当前辅导 8 名学生</p>
-          <p>本周新增 2 名学生</p>
+          <p>当前辅导 <strong>{{ stats.activeStudents }}</strong> 名学生</p>
+          <p>待处理请求 <strong>{{ stats.pendingRequests }}</strong> 个</p>
         </div>
         
         <div class="card">
           <div class="card-icon">📚</div>
-          <h3>教学任务</h3>
-          <p>待批改作业:5 份</p>
-          <p>本周课程:12 节</p>
+          <h3>教学资源</h3>
+          <p>已上传资源: <strong>{{ stats.resourcesCount }}</strong> 份</p>
+          <p>本周新增: 0 份</p>
         </div>
         
         <div class="card">
           <div class="card-icon">💬</div>
           <h3>消息通知</h3>
-          <p>未读消息:3 条</p>
-          <p>待处理请求:2 个</p>
+          <p>未读消息: <strong>{{ stats.unreadMessages }}</strong> 条</p>
+          <p>待处理请求: <strong>{{ stats.pendingRequests }}</strong> 个</p>
         </div>
       </div>
       
@@ -77,17 +77,62 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 
+const API_BASE_URL = 'http://localhost:3000/api/v1'
 const router = useRouter()
 
 // 从 localStorage 获取用户信息
 const userInfo = ref(null)
+const token = ref('')
 
-onMounted(() => {
+// 真实数据
+const stats = ref({
+  activeStudents: 0,
+  pendingRequests: 0,
+  resourcesCount: 0,
+  unreadMessages: 0
+})
+
+const students = ref([])
+
+onMounted(async () => {
+  // 加载用户信息
   const userStr = localStorage.getItem('user')
   if (userStr) {
     userInfo.value = JSON.parse(userStr)
+    token.value = userInfo.value.token || ''
   }
+  
+  // 加载仪表盘数据
+  await loadDashboard()
 })
+
+// 加载仪表盘数据
+const loadDashboard = async () => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/teachers/dashboard`, {
+      headers: {
+        'Authorization': `Bearer ${token.value}`
+      }
+    })
+    
+    if (response.ok) {
+      const data = await response.json()
+      if (data.status === 'success' && data.data) {
+        // 更新统计数据
+        stats.value = data.data.stats || stats.value
+        // 更新学生列表
+        students.value = (data.data.students || []).map(s => ({
+          id: s.id,
+          name: s.name,
+          grade: s.grade || '未设置',
+          status: s.status || '活跃'
+        }))
+      }
+    }
+  } catch (error) {
+    console.error('加载仪表盘数据失败:', error)
+  }
+}
 
 // 获取用户姓氏（用于头像显示）
 const userInitial = computed(() => {
@@ -104,12 +149,6 @@ const welcomeText = computed(() => {
   }
   return '欢迎，李老师'
 })
-
-const students = ref([
-  { id: 1, name: '小明', grade: '三年级', status: '活跃' },
-  { id: 2, name: '小红', grade: '四年级', status: '活跃' },
-  { id: 3, name: '小刚', grade: '五年级', status: '待确认' }
-])
 
 const handleAction = (student) => {
   if (student.status === '活跃') {

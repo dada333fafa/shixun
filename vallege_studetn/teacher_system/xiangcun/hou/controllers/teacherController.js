@@ -1,12 +1,12 @@
 const Teacher = require('../models/Teacher');
 const User = require('../models/User');
-const Match = require('../models/Match');
+const TeacherStudentMatch = require('../models/TeacherStudentMatch');
 const Resource = require('../models/Resource');
 
 // 获取教师列表
 exports.getTeachers = async (req, res) => {
   try {
-    const { subject, page = 1, page_size = 20 } = req.query;
+    const { subject, page = 1, page_size = 100 } = req.query;
     
     let query = {};
     if (subject) {
@@ -16,7 +16,7 @@ exports.getTeachers = async (req, res) => {
     const skip = (page - 1) * page_size;
     
     const teachers = await Teacher.find(query)
-      .populate('userId', 'name phone email avatar')
+      .populate('user', 'name phone email avatar')
       .skip(skip)
       .limit(parseInt(page_size));
 
@@ -28,8 +28,8 @@ exports.getTeachers = async (req, res) => {
       data: {
         teachers: teachers.map(t => ({
           id: t._id,
-          user_id: t.userId._id,
-          name: t.userId.name,
+          user_id: t.user._id,
+          name: t.user.name,
           subject: t.subject,
           education: t.education,
           experience: t.experience,
@@ -57,7 +57,7 @@ exports.getTeachers = async (req, res) => {
 exports.getTeacherById = async (req, res) => {
   try {
     const teacher = await Teacher.findById(req.params.id)
-      .populate('userId', 'name phone email avatar');
+      .populate('user', 'name phone email avatar');
 
     if (!teacher) {
       return res.status(404).json({
@@ -66,15 +66,15 @@ exports.getTeacherById = async (req, res) => {
       });
     }
 
-    const resourcesCount = await Resource.countDocuments({ teacherId: teacher._id });
+    const resourcesCount = await Resource.countDocuments({ teacher: teacher._id });
 
     res.json({
       status: 'success',
       message: '获取成功',
       data: {
         id: teacher._id,
-        user_id: teacher.userId._id,
-        name: teacher.userId.name,
+        user_id: teacher.user._id,
+        name: teacher.user.name,
         subject: teacher.subject,
         education: teacher.education,
         experience: teacher.experience,
@@ -96,7 +96,7 @@ exports.getTeacherById = async (req, res) => {
 // 获取当前教师的仪表盘数据
 exports.getDashboard = async (req, res) => {
   try {
-    const teacher = await Teacher.findOne({ userId: req.user.id });
+    const teacher = await Teacher.findOne({ user: req.user.id });
     
     if (!teacher) {
       return res.status(404).json({
@@ -106,34 +106,37 @@ exports.getDashboard = async (req, res) => {
     }
 
     // 统计活跃学生数
-    const activeMatches = await Match.countDocuments({
-      teacherId: teacher._id,
+    const activeMatches = await TeacherStudentMatch.countDocuments({
+      teacher: teacher._id,
       status: { $in: ['active', 'approved'] }
     });
 
     // 统计待处理请求
-    const pendingMatches = await Match.countDocuments({
-      teacherId: teacher._id,
+    const pendingMatches = await TeacherStudentMatch.countDocuments({
+      teacher: teacher._id,
       status: 'pending'
     });
 
     // 统计资源数
-    const resourcesCount = await Resource.countDocuments({ teacherId: teacher._id });
+    const resourcesCount = await Resource.countDocuments({ teacher: teacher._id });
 
     // 获取学生列表
-    const matches = await Match.find({
-      teacherId: teacher._id,
+    const matches = await TeacherStudentMatch.find({
+      teacher: teacher._id,
       status: { $in: ['active', 'approved', 'pending'] }
     })
-    .populate('studentId')
+    .populate({ path: 'student', populate: { path: 'user', select: 'name' } })
     .limit(5);
 
-    const students = matches.map(m => ({
-      id: m.studentId._id,
-      name: m.studentId.userId ? '学生' : '未知',
-      grade: m.studentId.grade,
-      status: m.status === 'pending' ? '待确认' : '活跃'
-    }));
+    const students = matches.map(m => {
+      const studentInfo = m.student?.user || m.student || {};
+      return {
+        id: m.student?._id || m._id,
+        name: studentInfo.name || '学生',
+        grade: m.student?.grade || '未设置',
+        status: m.status === 'pending' ? '待确认' : '活跃'
+      };
+    });
 
     res.json({
       status: 'success',

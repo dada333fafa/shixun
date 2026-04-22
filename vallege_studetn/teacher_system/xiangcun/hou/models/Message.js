@@ -13,7 +13,7 @@ const messageSchema = new mongoose.Schema({
   },
   matchId: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'Match'
+    ref: 'TeacherStudentMatch'
   },
   content: {
     type: String,

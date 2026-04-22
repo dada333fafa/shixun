@@ -25,94 +25,99 @@
         </div>
       </header>
 
-      <!-- 标签页切换 -->
-      <div class="match-tabs">
-        <button 
-          class="tab-btn"
-          :class="{ active: activeTab === 'pending' }"
-          @click="activeTab = 'pending'"
-        >
-          待处理
-        </button>
-        <button 
-          class="tab-btn"
-          :class="{ active: activeTab === 'approved' }"
-          @click="activeTab = 'approved'"
-        >
-          已通过
-        </button>
-        <button 
-          class="tab-btn"
-          :class="{ active: activeTab === 'rejected' }"
-          @click="activeTab = 'rejected'"
-        >
-          已拒绝
-        </button>
+      <!-- 统计卡片 -->
+      <div class="stats-cards">
+        <div class="stat-card">
+          <div class="stat-icon">📝</div>
+          <div class="stat-info">
+            <div class="stat-number">{{ stats.pending }}</div>
+            <div class="stat-label">待确认</div>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon">✅</div>
+          <div class="stat-info">
+            <div class="stat-number">{{ stats.approved }}</div>
+            <div class="stat-label">已接受</div>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon">❌</div>
+          <div class="stat-info">
+            <div class="stat-number">{{ stats.rejected }}</div>
+            <div class="stat-label">已拒绝</div>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon">👥</div>
+          <div class="stat-info">
+            <div class="stat-number">{{ stats.total }}</div>
+            <div class="stat-label">总请求数</div>
+          </div>
+        </div>
       </div>
 
       <!-- 匹配列表 -->
       <div class="match-list">
-        <div v-if="loading" class="loading-state">
-          <div class="loading-spinner"></div>
-          <p>加载中...</p>
+        <h3>我的辅导请求</h3>
+        
+        <div v-if="loading" class="loading-message">
+          加载中...
         </div>
-
-        <div v-else-if="filteredMatches.length === 0" class="empty-state">
-          <div class="empty-icon">📋</div>
-          <div class="empty-text">暂无匹配记录</div>
-          <div class="empty-hint">去教师选择页面发送辅导请求吧</div>
-          <router-link to="/student/teacher-selection" class="btn-go">
+        
+        <div v-else-if="matches.length === 0" class="no-matches">
+          <p>还没有发送任何辅导请求</p>
+          <router-link to="/student/teacher-selection" class="btn-primary">
             去选择教师
           </router-link>
         </div>
-
+        
         <div v-else class="matches-container">
           <div 
-            v-for="match in filteredMatches" 
+            v-for="match in matches" 
             :key="match._id"
             class="match-item"
           >
-            <div class="match-item-header">
-              <div class="match-item-title">
-                {{ match.teacherUser?.name || match.teacher?.name || match.teacherName || '未知教师' }}
+            <div class="match-header">
+              <div class="teacher-info">
+                <div class="teacher-avatar">
+                  {{ getTeacherInitial(match) }}
+                </div>
+                <div class="teacher-details">
+                  <h4>{{ getTeacherName(match) }}</h4>
+                  <p class="teacher-subject">{{ getTeacherSubject(match) }}</p>
+                </div>
               </div>
-              <div 
-                class="match-item-status"
+              <span 
+                class="match-status" 
                 :class="getStatusClass(match.status)"
               >
                 {{ getStatusText(match.status) }}
+              </span>
+            </div>
+            
+            <div class="match-body">
+              <div class="request-info">
+                <p><strong>辅导需求：</strong>{{ match.requestMessage || '未填写' }}</p>
+                <p><strong>发送时间：</strong>{{ formatDate(match.createdAt) }}</p>
+                <p v-if="match.matchedAt"><strong>确认时间：</strong>{{ formatDate(match.matchedAt) }}</p>
               </div>
             </div>
             
-            <div class="match-item-details">
-              <p><strong>请求时间：</strong>{{ formatDate(match.createdAt) }}</p>
-              <p v-if="match.requestMessage"><strong>请求说明：</strong>{{ match.requestMessage }}</p>
-              <p v-if="match.message"><strong>请求说明：</strong>{{ match.message }}</p>
-              <p v-if="match.status === 'approved' && match.approvedAt">
-                <strong>通过时间：</strong>{{ formatDate(match.approvedAt) }}
-              </p>
-              <p v-if="match.status === 'rejected' && match.rejectedAt">
-                <strong>拒绝时间：</strong>{{ formatDate(match.rejectedAt) }}
-              </p>
-              <p v-if="match.rejectReason">
-                <strong>拒绝原因：</strong>{{ match.rejectReason }}
-              </p>
-            </div>
-            
-            <div class="match-item-actions">
+            <div class="match-actions">
               <button 
                 v-if="match.status === 'pending'"
-                class="btn btn-cancel"
-                @click="cancelMatchRequest(match._id)"
+                class="btn btn-secondary"
+                @click="cancelMatch(match._id)"
               >
                 取消请求
               </button>
               <button 
-                v-if="match.status === 'approved'"
-                class="btn btn-chat"
+                v-if="match.status === 'approved' || match.status === 'active'"
+                class="btn btn-primary"
                 @click="goToChat(match)"
               >
-                💬 开始聊天
+                开始聊天
               </button>
             </div>
           </div>
@@ -125,100 +130,167 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { getCurrentUser, getMatches, cancelMatchRequest as cancelMatch } from '@/utils/api'
 
+const API_BASE_URL = '/api/v1'
 const router = useRouter()
+
 const currentUser = ref(null)
-const loading = ref(false)
 const matches = ref([])
-const activeTab = ref('pending')
+const loading = ref(false)
+
+const stats = computed(() => {
+  return {
+    pending: matches.value.filter(m => m.status === 'pending').length,
+    approved: matches.value.filter(m => m.status === 'approved').length,
+    rejected: matches.value.filter(m => m.status === 'rejected').length,
+    total: matches.value.length
+  }
+})
 
 onMounted(async () => {
   try {
     currentUser.value = await getCurrentUser()
     await loadMatches()
   } catch (error) {
-    console.error('初始化失败:', error)
+    console.error('初始化页面失败:', error)
     alert('加载页面失败，请重新登录')
     router.push('/login')
   }
 })
 
+function getCurrentUser() {
+  const userStr = localStorage.getItem('user')
+  if (userStr) {
+    return JSON.parse(userStr)
+  }
+  return null
+}
+
 async function loadMatches() {
   try {
     loading.value = true
-    const result = await getMatches()
-    console.log('获取到的匹配数据:', result)
-    // 后端直接返回数组，不是 { matches: [...] }
-    matches.value = Array.isArray(result) ? result : (result.matches || [])
-    console.log('匹配列表数量:', matches.value.length)
+    const user = getCurrentUser()
+    // 从 localStorage 直接获取 token，而不是从 user 对象中获取
+    const token = localStorage.getItem('token') || user?.token || ''
+    
+    console.log(' 学生加载匹配数据...')
+    console.log('🔑 Token:', token ? token.substring(0, 20) + '...' : '无')
+    
+    // 使用学生专用的匹配路由
+    const response = await fetch(`${API_BASE_URL}/matches`, {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    })
+    
+    console.log('📡 响应状态:', response.status, response.statusText)
+    
+    if (response.ok) {
+      const data = await response.json()
+      console.log('📦 后端返回数据:', JSON.stringify(data, null, 2))
+      console.log('📊 数据数量:', Array.isArray(data) ? data.length : '不是数组')
+      
+      matches.value = Array.isArray(data) ? data : []
+    } else {
+      const errorData = await response.json()
+      console.error('❌ 加载匹配数据失败:', response.status, errorData)
+    }
   } catch (error) {
-    console.error('加载匹配列表失败:', error)
-    alert('加载匹配列表失败: ' + error.message)
+    console.error('❌ 加载匹配数据异常:', error)
   } finally {
     loading.value = false
   }
 }
 
-const filteredMatches = computed(() => {
-  return matches.value.filter(match => match.status === activeTab.value)
-})
+function getTeacherInitial(match) {
+  const teacher = match.teacher?.user || match.teacher || {}
+  const name = teacher.name || '教师'
+  return name.charAt(0)
+}
+
+function getTeacherName(match) {
+  const teacher = match.teacher?.user || match.teacher || {}
+  return teacher.name || '未知教师'
+}
+
+function getTeacherSubject(match) {
+  const teacher = match.teacher || {}
+  return teacher.subject || '未设置科目'
+}
 
 function getStatusText(status) {
   const statusMap = {
-    'pending': '待处理',
-    'approved': '已通过',
-    'rejected': '已拒绝'
+    'pending': '待确认',
+    'approved': '已接受',
+    'rejected': '已拒绝',
+    'active': '匹配中',
+    'completed': '已完成'
   }
-  return statusMap[status] || '未知'
+  return statusMap[status] || status
 }
 
 function getStatusClass(status) {
-  const classMap = {
+  const classes = {
     'pending': 'status-pending',
     'approved': 'status-approved',
-    'rejected': 'status-rejected'
+    'rejected': 'status-rejected',
+    'active': 'status-approved',
+    'completed': 'status-completed'
   }
-  return classMap[status] || ''
+  return classes[status] || ''
 }
 
-function formatDate(dateString) {
-  if (!dateString) return ''
-  const date = new Date(dateString)
-  const year = date.getFullYear()
-  const month = String(date.getMonth() + 1).padStart(2, '0')
-  const day = String(date.getDate()).padStart(2, '0')
-  const hours = String(date.getHours()).padStart(2, '0')
-  const minutes = String(date.getMinutes()).padStart(2, '0')
-  return `${year}-${month}-${day} ${hours}:${minutes}`
+function formatDate(dateStr) {
+  if (!dateStr) return ''
+  const date = new Date(dateStr)
+  return date.toLocaleString('zh-CN', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit'
+  })
 }
 
-async function cancelMatchRequest(matchId) {
+async function cancelMatch(matchId) {
   if (!confirm('确定要取消这个辅导请求吗？')) {
     return
   }
   
   try {
-    await cancelMatch(matchId)
-    alert('请求已取消')
-    await loadMatches()
+    const user = getCurrentUser()
+    const token = user?.token || ''
+    
+    const response = await fetch(`${API_BASE_URL}/matches/${matchId}`, {
+      method: 'DELETE',
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    })
+    
+    if (response.ok) {
+      alert('已取消请求')
+      await loadMatches()
+    } else {
+      const errorData = await response.json()
+      alert('取消失败: ' + (errorData.msg || '未知错误'))
+    }
   } catch (error) {
     console.error('取消请求失败:', error)
-    alert('取消请求失败: ' + error.message)
+    alert('取消失败: ' + error.message)
   }
 }
 
 function goToChat(match) {
-  const teacherId = match.teacher?._id || match.teacherId
+  const teacherId = match.teacher?.user?._id || match.teacher?._id
   if (teacherId) {
-    router.push('/student/chat')
-  } else {
-    alert('无法找到教师信息')
+    router.push(`/student/chat?teacher=${teacherId}`)
   }
 }
 
 function handleLogout() {
   localStorage.removeItem('token')
+  localStorage.removeItem('user')
   router.push('/login')
 }
 </script>
@@ -276,7 +348,8 @@ function handleLogout() {
 
 .main-content {
   flex: 1;
-  padding: 20px;
+  padding: 20px 20px 20px 0;
+  overflow-y: auto;
 }
 
 .header {
@@ -313,85 +386,72 @@ function handleLogout() {
   font-weight: bold;
 }
 
-.match-tabs {
-  display: flex;
-  gap: 10px;
+.stats-cards {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 15px;
   margin-bottom: 20px;
 }
 
-.tab-btn {
-  padding: 10px 20px;
+.stat-card {
   background: white;
-  border: 2px solid #e0e0e0;
-  border-radius: 8px;
-  font-weight: bold;
-  cursor: pointer;
-  transition: all 0.3s ease;
+  padding: 20px;
+  border-radius: 10px;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+  display: flex;
+  align-items: center;
+  gap: 15px;
 }
 
-.tab-btn:hover {
-  border-color: #4CAF50;
+.stat-icon {
+  font-size: 2em;
+}
+
+.stat-number {
+  font-size: 1.8em;
+  font-weight: bold;
   color: #4CAF50;
 }
 
-.tab-btn.active {
-  background: #4CAF50;
-  color: white;
-  border-color: #4CAF50;
+.stat-label {
+  color: #666;
+  font-size: 0.9em;
 }
 
 .match-list {
   background: white;
   padding: 25px;
   border-radius: 10px;
-  box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+  box-shadow: 0 2px 5px rgba(0,0,0,0.1);
 }
 
-.loading-state {
+.match-list h3 {
+  color: #4CAF50;
+  margin-bottom: 20px;
+  font-size: 1.4em;
+}
+
+.loading-message {
+  text-align: center;
+  padding: 40px;
+  color: #999;
+  font-size: 1.1em;
+}
+
+.no-matches {
   text-align: center;
   padding: 40px;
   color: #999;
 }
 
-.loading-spinner {
-  width: 40px;
-  height: 40px;
-  border: 4px solid #f3f3f3;
-  border-top: 4px solid #4CAF50;
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
-  margin: 0 auto 20px;
-}
-
-@keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
-}
-
-.empty-state {
-  text-align: center;
-  padding: 60px 20px;
-  color: #999;
-}
-
-.empty-icon {
-  font-size: 4em;
+.no-matches p {
   margin-bottom: 20px;
+  font-size: 1.1em;
 }
 
-.empty-text {
-  font-size: 1.2em;
-  margin-bottom: 10px;
-}
-
-.empty-hint {
-  font-size: 0.9em;
-  margin-bottom: 20px;
-}
-
-.btn-go {
+.btn-primary {
   display: inline-block;
-  padding: 10px 20px;
+  padding: 12px 24px;
   background: #4CAF50;
   color: white;
   text-decoration: none;
@@ -400,47 +460,69 @@ function handleLogout() {
   transition: all 0.3s ease;
 }
 
-.btn-go:hover {
+.btn-primary:hover {
   background: #45a049;
   transform: translateY(-2px);
 }
 
 .matches-container {
-  display: grid;
+  display: flex;
+  flex-direction: column;
   gap: 15px;
 }
 
 .match-item {
+  border: 2px solid #e0e0e0;
+  border-radius: 10px;
   padding: 20px;
-  border-bottom: 1px solid #e0e0e0;
   transition: all 0.3s ease;
 }
 
 .match-item:hover {
-  background-color: #f9f9f9;
+  border-color: #4CAF50;
+  box-shadow: 0 4px 8px rgba(76, 175, 80, 0.1);
 }
 
-.match-item:last-child {
-  border-bottom: none;
-}
-
-.match-item-header {
+.match-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 10px;
+  margin-bottom: 15px;
 }
 
-.match-item-title {
+.teacher-info {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+
+.teacher-avatar {
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  background: #E8F5E8;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #4CAF50;
+  font-size: 1.3em;
   font-weight: bold;
-  font-size: 1.1em;
-  color: #333;
 }
 
-.match-item-status {
-  padding: 5px 10px;
+.teacher-details h4 {
+  color: #4CAF50;
+  margin-bottom: 5px;
+}
+
+.teacher-subject {
+  color: #666;
+  font-size: 0.9em;
+}
+
+.match-status {
+  padding: 6px 12px;
   border-radius: 15px;
-  font-size: 0.8em;
+  font-size: 0.85em;
   font-weight: bold;
 }
 
@@ -459,47 +541,59 @@ function handleLogout() {
   color: #721c24;
 }
 
-.match-item-details {
+.status-completed {
+  background-color: #d1ecf1;
+  color: #0c5460;
+}
+
+.match-body {
+  background: #f9f9f9;
+  padding: 15px;
+  border-radius: 8px;
   margin-bottom: 15px;
 }
 
-.match-item-details p {
-  margin-bottom: 5px;
-  font-size: 0.9em;
-  line-height: 1.5;
+.request-info p {
+  margin-bottom: 8px;
+  color: #555;
 }
 
-.match-item-actions {
+.request-info p:last-child {
+  margin-bottom: 0;
+}
+
+.match-actions {
   display: flex;
   gap: 10px;
+  justify-content: flex-end;
 }
 
 .btn {
   padding: 8px 16px;
   border: none;
-  border-radius: 5px;
+  border-radius: 6px;
   font-size: 0.9em;
   font-weight: bold;
   cursor: pointer;
   transition: all 0.3s ease;
 }
 
-.btn-cancel {
-  background: #dc3545;
-  color: white;
+.btn-secondary {
+  background: #e0e0e0;
+  color: #333;
 }
 
-.btn-cancel:hover {
-  background: #c82333;
+.btn-secondary:hover {
+  background: #bdbdbd;
   transform: translateY(-2px);
 }
 
-.btn-chat {
+.btn-primary-action {
   background: #4CAF50;
   color: white;
 }
 
-.btn-chat:hover {
+.btn-primary-action:hover {
   background: #45a049;
   transform: translateY(-2px);
 }
@@ -520,8 +614,18 @@ function handleLogout() {
     gap: 10px;
   }
   
-  .match-tabs {
-    flex-wrap: wrap;
+  .stats-cards {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  
+  .match-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+  
+  .match-actions {
+    justify-content: flex-start;
   }
 }
 </style>

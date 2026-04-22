@@ -35,9 +35,12 @@ const userSchema = new mongoose.Schema({
     lowercase: true,
     trim: true
   },
-  avatar: {
-    type: String
-  }
+  gender: String,
+  birth_date: Date,
+  QQ: String,
+  WeChat: String,
+  address: String,
+  avatar: String
 }, {
   timestamps: true // 自动添加 createdAt 和 updatedAt
 });

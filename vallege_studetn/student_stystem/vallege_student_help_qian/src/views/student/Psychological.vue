@@ -77,7 +77,7 @@
       <section class="psychological-section">
         <h2>👨‍⚕️ 专业心理咨询师</h2>
         <div class="counselor-list">
-          <div v-for="counselor in counselors" :key="counselor.id" class="counselor-card">
+          <div v-for="counselor in counselors" :key="counselor._id || counselor.id" class="counselor-card">
             <div class="counselor-header">
               <div class="counselor-avatar">{{ counselor.name.charAt(0) }}</div>
               <div class="counselor-info">
@@ -111,6 +111,36 @@
           </div>
         </div>
       </section>
+
+      <!-- 心理咨询安排 -->
+      <section class="psychological-section">
+        <h2>📅 心理咨询安排</h2>
+        <div v-if="schedules.length === 0" class="empty-state">
+          <p>暂无心理咨询安排</p>
+        </div>
+        <div v-else class="schedule-list">
+          <div v-for="schedule in schedules" :key="schedule._id" class="schedule-card" :class="'status-' + schedule.status">
+            <div class="schedule-header">
+              <h3>{{ schedule.counselorName }}</h3>
+              <span class="schedule-status" :class="'status-' + schedule.status">
+                {{ schedule.status === 'pending' ? '待确认' : schedule.status === 'accepted' ? '已接受' : '已完成' }}
+              </span>
+            </div>
+            <div class="schedule-details">
+              <p><strong>头衔：</strong>{{ schedule.counselorTitle }}</p>
+              <p><strong>咨询时间：</strong>{{ formatScheduleTime(schedule.scheduleTime) }}</p>
+              <p><strong>咨询方式：</strong>{{ getMethodText(schedule.method) }}</p>
+              <p><strong>联系方式：</strong>{{ schedule.counselorContact }}</p>
+              <p v-if="schedule.counselorPhone"><strong>电话：</strong>{{ schedule.counselorPhone }}</p>
+              <p v-if="schedule.counselorEmail"><strong>邮箱：</strong>{{ schedule.counselorEmail }}</p>
+              <p v-if="schedule.notes"><strong>备注：</strong>{{ schedule.notes }}</p>
+            </div>
+            <div class="schedule-actions" v-if="schedule.status === 'pending'">
+              <button class="btn-accept" @click="acceptSchedule(schedule)">接受</button>
+            </div>
+          </div>
+        </div>
+      </section>
     </main>
   </div>
 </template>
@@ -119,11 +149,16 @@
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { getCurrentUser, submitPsychologicalAssessment, getLatestAssessment } from '@/utils/api'
+import { counselorAPI } from '@/api'
+import api from '@/api'
+
+const API_BASE_URL = 'http://localhost:3000/api/v1'
 
 const router = useRouter()
 const currentUser = ref(null)
 const loading = ref(false)
 const latestAssessment = ref(null)
+const schedules = ref([])
 
 // 心理评估问题
 const questions = [
@@ -171,7 +206,9 @@ const counselors = ref([
     title: '资深心理咨询师',
     qualification: '国家二级心理咨询师',
     experience: '15年心理咨询经验',
-    contact: '400-xxx-xxxx'
+    contact: '400-123-4567',
+    phone: '13800001234',
+    email: 'zhang.counselor@example.com'
   },
   {
     id: 2,
@@ -179,7 +216,9 @@ const counselors = ref([
     title: '青少年心理专家',
     qualification: '心理学博士',
     experience: '10年青少年心理辅导经验',
-    contact: '400-xxx-xxxx'
+    contact: '400-123-4568',
+    phone: '13900005678',
+    email: 'li.counselor@example.com'
   },
   {
     id: 3,
@@ -187,7 +226,9 @@ const counselors = ref([
     title: '心理健康教育师',
     qualification: '教育学硕士',
     experience: '8年学校心理辅导经验',
-    contact: '400-xxx-xxxx'
+    contact: '400-123-4569',
+    phone: '13700009012',
+    email: 'wang.counselor@example.com'
   }
 ])
 
@@ -220,12 +261,33 @@ onMounted(async () => {
   try {
     currentUser.value = await getCurrentUser()
     await loadLatestAssessment()
+    await loadSchedules()
   } catch (error) {
     console.error('初始化失败:', error)
     alert('加载页面失败，请重新登录')
     router.push('/login')
   }
 })
+
+// 加载咨询安排
+async function loadSchedules() {
+  try {
+    const student = await getCurrentUser()
+    const response = await fetch(`${API_BASE_URL}/psychological-schedules/student/${student._id || student.id}`, {
+      headers: {
+        'Authorization': `Bearer ${localStorage.getItem('token')}`
+      }
+    })
+    
+    if (response.ok) {
+      const data = await response.json()
+      schedules.value = data.data?.schedules || []
+      console.log('加载咨询安排:', schedules.value)
+    }
+  } catch (error) {
+    console.error('加载咨询安排失败:', error)
+  }
+}
 
 async function loadLatestAssessment() {
   try {
@@ -388,7 +450,8 @@ function formatDate(dateString) {
 }
 
 function contactCounselor(counselor) {
-  alert(`您可以拨打 ${counselor.contact} 联系${counselor.name}\n\n${counselor.title}\n${counselor.qualification}\n${counselor.experience}`)
+  const contactInfo = counselor.phone || counselor.contact || '暂无联系方式'
+  alert(`您可以联系 ${counselor.name}\n\n${counselor.title}\n电话：${contactInfo}\n邮箱：${counselor.email || '暂无'}`)
 }
 
 function viewResource(resource) {
@@ -398,6 +461,51 @@ function viewResource(resource) {
 function handleLogout() {
   localStorage.removeItem('token')
   router.push('/login')
+}
+
+// 接受咨询安排
+async function acceptSchedule(schedule) {
+  try {
+    const response = await fetch(`${API_BASE_URL}/psychological-schedules/${schedule._id}/accept`, {
+      method: 'PUT',
+      headers: {
+        'Authorization': `Bearer ${localStorage.getItem('token')}`
+      }
+    })
+    
+    if (response.ok) {
+      schedule.status = 'completed'
+      alert('已接受咨询安排，请按时参加！')
+    } else {
+      alert('操作失败，请稍后重试')
+    }
+  } catch (error) {
+    console.error('接受咨询安排失败:', error)
+    alert('操作失败，请稍后重试')
+  }
+}
+
+// 格式化咨询时间
+function formatScheduleTime(timeStr) {
+  if (!timeStr) return ''
+  const date = new Date(timeStr)
+  return date.toLocaleString('zh-CN', { 
+    year: 'numeric', 
+    month: '2-digit', 
+    day: '2-digit', 
+    hour: '2-digit', 
+    minute: '2-digit' 
+  })
+}
+
+// 获取咨询方式文本
+function getMethodText(method) {
+  const methods = {
+    'video': '视频咨询',
+    'voice': '语音咨询',
+    'text': '文字咨询'
+  }
+  return methods[method] || method
 }
 </script>
 
@@ -721,6 +829,119 @@ function handleLogout() {
 
 .btn-view:hover {
   background: #45a049;
+}
+
+/* 心理咨询安排样式 */
+.empty-state {
+  text-align: center;
+  padding: 40px;
+  color: #999;
+  font-size: 1.1em;
+}
+
+.schedule-list {
+  display: grid;
+  gap: 20px;
+}
+
+.schedule-card {
+  background: #f9f9f9;
+  padding: 20px;
+  border-radius: 10px;
+  border-left: 4px solid #4CAF50;
+  transition: all 0.3s ease;
+}
+
+.schedule-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 15px rgba(0,0,0,0.1);
+}
+
+.schedule-card.status-pending {
+  border-left-color: #FFC107;
+  background: #FFF8E1;
+}
+
+.schedule-card.status-accepted {
+  border-left-color: #2196F3;
+  background: #E3F2FD;
+}
+
+.schedule-card.status-completed {
+  border-left-color: #4CAF50;
+  background: #E8F5E8;
+}
+
+.schedule-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 15px;
+}
+
+.schedule-header h3 {
+  color: #4CAF50;
+  margin: 0;
+  font-size: 1.2em;
+}
+
+.schedule-status {
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 0.85em;
+  font-weight: bold;
+}
+
+.schedule-status.status-pending {
+  background: #FFC107;
+  color: #fff;
+}
+
+.schedule-status.status-accepted {
+  background: #2196F3;
+  color: #fff;
+}
+
+.schedule-status.status-completed {
+  background: #4CAF50;
+  color: #fff;
+}
+
+.schedule-details {
+  margin-bottom: 15px;
+}
+
+.schedule-details p {
+  margin-bottom: 8px;
+  font-size: 0.95em;
+  line-height: 1.5;
+}
+
+.schedule-details p strong {
+  color: #555;
+}
+
+.schedule-actions {
+  text-align: center;
+  padding-top: 15px;
+  border-top: 1px solid #eee;
+}
+
+.btn-accept {
+  padding: 10px 30px;
+  background: linear-gradient(135deg, #4CAF50, #45a049);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 1em;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.btn-accept:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 5px 15px rgba(76, 175, 80, 0.3);
 }
 
 @media (max-width: 768px) {

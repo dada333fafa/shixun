@@ -8,49 +8,37 @@ exports.getStudents = async (req, res) => {
   try {
     const { grade, page = 1, page_size = 20 } = req.query;
     
-    const teacher = await Teacher.findOne({ userId: req.user.id });
-    
-    if (!teacher) {
-      return res.status(404).json({
-        status: 'error',
-        message: '教师信息不存在'
-      });
-    }
-
-    // 获取该教师匹配的学生
-    const matches = await Match.find({
-      teacherId: teacher._id,
-      status: { $in: ['active', 'approved'] }
-    }).populate('studentId');
-
-    let query = { _id: { $in: matches.map(m => m.studentId._id) } };
+    // 显示所有学生，不再限制为已匹配的学生
+    let studentQuery = {};
     
     if (grade) {
-      query.grade = { $regex: grade, $options: 'i' };
+      studentQuery.grade = { $regex: grade, $options: 'i' };
     }
 
     const skip = (page - 1) * page_size;
     
-    const students = await Student.find(query)
-      .populate('userId', 'name phone email')
+    const students = await Student.find(studentQuery)
+      .populate('user', 'name phone email')
       .skip(skip)
       .limit(parseInt(page_size));
 
-    const total = await Student.countDocuments(query);
+    const total = await Student.countDocuments(studentQuery);
 
     res.json({
       status: 'success',
       message: '获取成功',
       data: {
-        students: students.map(s => ({
-          id: s._id,
-          user_id: s.userId._id,
-          name: s.userId.name,
-          grade: s.grade,
-          school: s.school,
-          address: s.address,
-          status: '活跃'
-        })),
+        students: students
+          .filter(s => s.user) // 过滤掉没有关联用户的无效记录
+          .map(s => ({
+            id: s._id,
+            user_id: s.user._id,
+            name: s.user.name,
+            grade: s.grade,
+            school: s.school,
+            address: s.address,
+            status: '活跃'
+          })),
         pagination: {
           total,
           page: parseInt(page),
@@ -73,7 +61,7 @@ exports.getStudents = async (req, res) => {
 exports.getStudentById = async (req, res) => {
   try {
     const student = await Student.findById(req.params.id)
-      .populate('userId', 'name phone email');
+      .populate('user', 'name phone email');
 
     if (!student) {
       return res.status(404).json({
@@ -87,12 +75,12 @@ exports.getStudentById = async (req, res) => {
       message: '获取成功',
       data: {
         id: student._id,
-        user_id: student.userId._id,
-        name: student.userId.name,
+        user_id: student.user._id,
+        name: student.user.name,
         grade: student.grade,
         school: student.school,
         address: student.address,
-        parent_id: student.parentId
+        parent_id: student.parent
       }
     });
   } catch (error) {

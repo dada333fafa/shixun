@@ -1,7 +1,7 @@
 const mongoose = require('mongoose');
 
 const studentSchema = new mongoose.Schema({
-  userId: {
+  user: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
     required: true,
@@ -16,7 +16,7 @@ const studentSchema = new mongoose.Schema({
   address: String,
   learning_needs: String,
   psychological_status: String,
-  parentId: {
+  parent: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User'
   }

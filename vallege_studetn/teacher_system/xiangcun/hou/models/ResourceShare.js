@@ -1,12 +1,12 @@
 const mongoose = require('mongoose');
 
 const resourceShareSchema = new mongoose.Schema({
-  resourceId: {
+  resource: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'Resource',
+    ref: 'TeachingResource',
     required: true
   },
-  studentId: {
+  student: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Student',
     required: true

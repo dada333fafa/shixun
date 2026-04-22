@@ -215,8 +215,10 @@ function getSubjectsArray(teacher) {
 async function requestTeacher(teacher) {
   try {
     const teacherName = teacher.name || teacher.username
+    const teacherUserId = teacher.user_id || teacher.id
+    
     console.log('准备发送辅导请求:', {
-      teacherId: teacher.id,
+      teacherId: teacherUserId,
       teacherName: teacherName,
       teacherData: teacher
     })
@@ -227,11 +229,11 @@ async function requestTeacher(teacher) {
     
     const message = prompt('请输入辅导需求描述（可选）：') || ''
     
-    console.log('调用 sendMatchRequest, teacherId:', teacher.id)
-    const result = await sendMatchRequest(teacher.id, message)
+    console.log('调用 sendMatchRequest, teacherUserId:', teacherUserId)
+    const result = await sendMatchRequest(teacherUserId, message)
     console.log('发送请求成功:', result)
     
-    alert(result.msg || '辅导请求已发送，请等待老师和家长确认')
+    alert(result.msg || '辅导请求已发送，请等待老师确认')
     
     // 跳转到匹配管理页面
     router.push('/student/match')
@@ -300,7 +302,8 @@ function handleLogout() {
 
 .main-content {
   flex: 1;
-  padding: 20px;
+  padding: 20px 20px 20px 0;
+  overflow-y: auto;
 }
 
 .header {

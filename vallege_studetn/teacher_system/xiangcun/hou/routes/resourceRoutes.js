@@ -5,6 +5,7 @@ const {
   uploadResource,
   getResources,
   getResourceById,
+  downloadResource,
   updateResource,
   deleteResource,
   shareResource
@@ -30,15 +31,25 @@ const upload = multer({
   limits: { fileSize: 50 * 1024 * 1024 } // 限制50MB
 });
 
-// 所有路由都需要教师权限
+// 所有路由都需要认证（学生和老师都能访问）
 router.use(protect);
-router.use(authorize('teacher'));
 
-router.post('/', upload.single('file'), uploadResource);
+// 添加调试日志
+router.use((req, res, next) => {
+  console.log('🔍 资源路由 - 方法:', req.method, '路径:', req.path);
+  console.log('👤 用户角色:', req.user?.role, '用户ID:', req.user?.id);
+  next();
+});
+
+// GET 接口 - 学生和老师都能访问（查看资源）
 router.get('/', getResources);
+router.get('/:id/download', downloadResource);  // 具体路由必须放在前面
 router.get('/:id', getResourceById);
-router.put('/:id', upload.single('file'), updateResource);  // 更新资源（支持文件上传）
-router.post('/:id/share', shareResource);
-router.delete('/:id', deleteResource);
+
+// POST/PUT/DELETE 接口 - 只有教师可以操作（上传、更新、删除资源）
+router.post('/', authorize('teacher'), upload.single('file'), uploadResource);
+router.put('/:id', authorize('teacher'), upload.single('file'), updateResource);
+router.post('/:id/share', authorize('teacher'), shareResource);
+router.delete('/:id', authorize('teacher'), deleteResource);
 
 module.exports = router;

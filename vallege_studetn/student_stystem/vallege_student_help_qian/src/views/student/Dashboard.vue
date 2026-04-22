@@ -91,15 +91,26 @@ const currentUser = ref(null)
 
 onMounted(async () => {
   try {
+    const token = localStorage.getItem('token')
+    console.log('Dashboard mounted, token:', token)
+    if (!token) {
+      console.log('无 token，跳转到登录页')
+      router.push('/login')
+      return
+    }
     currentUser.value = await getCurrentUser()
+    console.log('Dashboard 用户信息:', currentUser.value)
   } catch (error) {
     console.error('获取用户信息失败:', error)
+    // 清除过期 token
+    localStorage.removeItem('token')
     router.push('/login')
   }
 })
 
 const handleLogout = () => {
   localStorage.removeItem('token')
+  localStorage.removeItem('user')
   router.push('/login')
 }
 </script>
@@ -157,7 +168,8 @@ const handleLogout = () => {
 
 .main-content {
   flex: 1;
-  padding: 20px;
+  padding: 20px 20px 20px 0;
+  overflow-y: auto;
 }
 
 .header {

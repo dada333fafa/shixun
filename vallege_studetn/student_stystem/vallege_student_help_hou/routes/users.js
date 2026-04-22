@@ -83,17 +83,15 @@ router.post('/register', async (req, res) => {
       console.log('家长信息保存成功');
     }
 
-    // 返回JWT token
+    // 返回JWT token - 兼容教师端格式 { id }
     const payload = {
-      user: {
-        id: user.id,
-        role: user.role
-      }
+      id: user.id,
+      role: user.role
     };
 
     jwt.sign(
       payload,
-      'your_jwt_secret',
+      process.env.JWT_SECRET || 'rural_education_secret_key_2026',
       { expiresIn: '7d' },
       (err, token) => {
         if (err) throw err;
@@ -148,17 +146,15 @@ router.post('/login', async (req, res) => {
 
     console.log('密码匹配成功');
 
-    // 返回JWT token
+    // 返回JWT token - 兼容教师端格式 { id }
     const payload = {
-      user: {
-        id: user.id,
-        role: user.role
-      }
+      id: user.id,
+      role: user.role
     };
 
     jwt.sign(
       payload,
-      'your_jwt_secret',
+      process.env.JWT_SECRET || 'rural_education_secret_key_2026',
       { expiresIn: '7d' },
       (err, token) => {
         if (err) throw err;
@@ -191,8 +187,8 @@ router.get('/me', async (req, res) => {
       return res.status(401).json({ msg: '无访问权限，未提供token' });
     }
 
-    const decoded = jwt.verify(token, 'your_jwt_secret');
-    const userId = decoded.user.id;
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'rural_education_secret_key_2026');
+    const userId = decoded.id || (decoded.user && decoded.user.id);
 
     const user = await User.findById(userId).select('-password');
     if (!user) {

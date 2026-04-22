@@ -4,11 +4,10 @@ const {
   getStudents,
   getStudentById
 } = require('../controllers/studentController');
-const { protect, authorize } = require('../middleware/auth');
+const { protect } = require('../middleware/auth');
 
-// 所有路由都需要教师权限
+// 所有路由都需要登录（学生和老师都能查看学生列表）
 router.use(protect);
-router.use(authorize('teacher'));
 
 router.get('/', getStudents);
 router.get('/:id', getStudentById);

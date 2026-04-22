@@ -1,12 +1,12 @@
 const mongoose = require('mongoose');
 
 const aiRecommendationSchema = new mongoose.Schema({
-  studentId: {
+  student: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Student',
     required: true
   },
-  teacherId: {
+  recommendedTeacher: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Teacher',
     required: true
@@ -17,9 +17,11 @@ const aiRecommendationSchema = new mongoose.Schema({
     min: 0,
     max: 100
   },
-  reason: String
+  reason: {
+    type: String
+  }
 }, {
   timestamps: true
 });
 
-module.exports = mongoose.model('AIRecommendation', aiRecommendationSchema);
+module.exports = mongoose.model('AiRecommendation', aiRecommendationSchema);

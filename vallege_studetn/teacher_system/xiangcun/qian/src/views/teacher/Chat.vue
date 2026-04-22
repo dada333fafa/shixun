@@ -102,6 +102,22 @@ onMounted(async () => {
   
   // 加载聊天列表
   await loadChatList()
+  
+  // 启动定时刷新（每3秒刷新一次）
+  refreshInterval = setInterval(() => {
+    loadChatList()
+    if (selectedChat.value) {
+      loadMessages(selectedChat.value.id)
+    }
+  }, 3000)
+})
+
+// 组件卸载时清除定时器
+import { onUnmounted } from 'vue'
+onUnmounted(() => {
+  if (refreshInterval) {
+    clearInterval(refreshInterval)
+  }
 })
 
 // 获取用户姓氏（用于头像显示）
@@ -127,6 +143,7 @@ const chats = ref([])
 const selectedChat = ref(null)
 const messages = ref([])
 const sending = ref(false)
+let refreshInterval = null // 定时刷新定时器
 
 const filteredChats = computed(() => {
   if (!searchQuery.value) return chats.value
@@ -137,27 +154,61 @@ const filteredChats = computed(() => {
 // 加载聊天列表
 const loadChatList = async () => {
   try {
-    const response = await fetch(`${API_BASE_URL}/messages/list`, {
+    // 先加载消息列表（已有聊天的联系人）
+    const msgResponse = await fetch(`${API_BASE_URL}/messages/list`, {
       headers: {
         'Authorization': `Bearer ${token.value}`
       }
     })
     
-    const data = await response.json()
-    if (data.status === 'success') {
-      chats.value = data.data.map(chat => ({
-        id: chat.id,
-        name: chat.name,
-        info: '学生',
-        lastMessage: chat.lastMessage,
-        time: chat.time,
-        unreadCount: chat.unreadCount || 0
-      }))
-      
-      // 如果有聊天列表，选择第一个
-      if (chats.value.length > 0 && !selectedChat.value) {
-        selectChat(chats.value[0])
+    let chatMap = new Map()
+    
+    if (msgResponse.ok) {
+      const data = await msgResponse.json()
+      if (data.status === 'success') {
+        data.data.forEach(chat => {
+          chatMap.set(chat.id, {
+            id: chat.id,
+            name: chat.name,
+            info: '学生',
+            lastMessage: chat.lastMessage,
+            time: chat.time,
+            unreadCount: chat.unreadCount || 0
+          })
+        })
       }
+    }
+    
+    // 再加载所有学生（补充没有消息记录的学生）
+    const studentResponse = await fetch(`${API_BASE_URL}/students`, {
+      headers: {
+        'Authorization': `Bearer ${token.value}`
+      }
+    })
+    
+    if (studentResponse.ok) {
+      const studentData = await studentResponse.json()
+      if (studentData.status === 'success' && studentData.data.students) {
+        studentData.data.students.forEach(student => {
+          if (!chatMap.has(student.user_id)) {
+            chatMap.set(student.user_id, {
+              id: student.user_id,
+              name: student.name,
+              info: student.grade || '学生',
+              lastMessage: '点击开始聊天',
+              time: '',
+              unreadCount: 0
+            })
+          }
+        })
+      }
+    }
+    
+    chats.value = Array.from(chatMap.values())
+    
+    // 如果有聊天列表，选择第一个
+    if (chats.value.length > 0 && !selectedChat.value) {
+      selectChat(chats.value[0])
     }
   } catch (error) {
     console.error('加载聊天列表失败:', error)
@@ -183,6 +234,7 @@ const loadMessages = async (userId) => {
     if (data.status === 'success') {
       messages.value = data.data.messages.map(msg => ({
         id: msg.id,
+        sender_id: msg.sender_id,
         type: msg.sender_id === userInfo.value.id ? 'sent' : 'received',
         content: msg.content,
         created_at: msg.created_at
@@ -213,7 +265,7 @@ const sendMessage = async () => {
         'Authorization': `Bearer ${token.value}`
       },
       body: JSON.stringify({
-        receiver_id: selectedChat.value.id,
+        receiver_id: selectedChat.value.userId || selectedChat.value.id,
         content: newMessage.value,
         type: 'text'
       })
@@ -224,6 +276,7 @@ const sendMessage = async () => {
       // 添加新消息到列表
       messages.value.push({
         id: data.data.id,
+        sender_id: data.data.sender_id,
         type: 'sent',
         content: data.data.content,
         created_at: data.data.created_at

@@ -29,7 +29,7 @@
       <div class="counselor-grid">
         <div 
           v-for="counselor in counselors" 
-          :key="counselor.id"
+          :key="counselor._id || counselor.id"
           class="counselor-card"
         >
           <div class="counselor-avatar">{{ counselor.name[0] }}</div>
@@ -280,16 +280,13 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
+import { counselorAPI } from '../../api'
+
+const API_BASE_URL = 'http://localhost:3000/api/v1'
 
 // 从 localStorage 获取用户信息
 const userInfo = ref(null)
-
-onMounted(() => {
-  const userStr = localStorage.getItem('user')
-  if (userStr) {
-    userInfo.value = JSON.parse(userStr)
-  }
-})
+const token = ref('')
 
 // 获取用户姓氏（用于头像显示）
 const userInitial = computed(() => {
@@ -307,65 +304,79 @@ const userDisplayName = computed(() => {
   return '李老师'
 })
 
+// 心理咨询师列表
 const counselors = ref([
   {
     id: 1,
-    name: '王心理师',
-    title: '国家二级心理咨询师',
-    specialties: ['儿童心理', '青少年', '亲子关系'],
-    bio: '从事儿童青少年心理咨询工作10年，擅长处理儿童情绪问题、亲子关系冲突等。采用认知行为疗法和游戏疗法，帮助孩子们建立积极心态。',
-    experience: '2014年至今，在某市儿童医院心理科工作，累计咨询时长超过5000小时。',
-    email: 'wang.psych@example.com',
-    phone: '138****1234'
+    name: '张医生',
+    title: '资深心理咨询师',
+    specialties: ['焦虑症', '抑郁症', '青少年心理'],
+    bio: '擅长青少年心理健康咨询，有15年临床经验。',
+    experience: '15年心理咨询经验',
+    email: 'zhang.counselor@example.com',
+    phone: '13800001234'
   },
   {
     id: 2,
-    name: '张心理师',
-    title: '国家二级心理咨询师',
-    specialties: ['留守儿童', '情绪管理', '学习压力'],
-    bio: '专注于留守儿童心理健康研究，独创“陪伴式”咨询模式。帮助超过200名留守儿童克服心理障碍，重建自信。',
-    experience: '2015年至今，在乡村学校开展心理辅导工作，深入留守儿童群体，了解他们的真实需求。',
-    email: 'zhang.psych@example.com',
-    phone: '139****5678'
+    name: '李医生',
+    title: '青少年心理专家',
+    specialties: ['学习压力', '人际关系', '自信心建设'],
+    bio: '专注于青少年学习压力疏导和人际关系改善。',
+    experience: '10年青少年心理辅导经验',
+    email: 'li.counselor@example.com',
+    phone: '13900005678'
   },
   {
     id: 3,
-    name: '李心理师',
-    title: '国家三级心理咨询师',
-    specialties: ['儿童发展', '行为问题', '家庭咨询'],
-    bio: '儿童发展心理学硕士，擅长儿童行为问题干预和家庭系统治疗。注重从家庭环境角度解决儿童心理问题。',
-    experience: '2018年至今，在多家教育机构担任心理顾问，为家庭提供专业心理咨询服务。',
-    email: 'li.psych@example.com',
-    phone: '137****9012'
+    name: '王医生',
+    title: '心理健康教育师',
+    specialties: ['情绪管理', '心理危机干预', '家庭教育'],
+    bio: '长期从事学校心理健康教育工作，擅长情绪管理和心理危机干预。',
+    experience: '8年学校心理辅导经验',
+    email: 'wang.counselor@example.com',
+    phone: '13700009012'
   }
 ])
 
-const students = ref([
-  {
-    id: 1,
-    name: '张三',
-    grade: '五年级',
-    condition: '情绪低落',
-    description: '最近学习压力大,情绪不稳定',
-    status: 'pending'
-  },
-  {
-    id: 2,
-    name: '李四',
-    grade: '六年级',
-    condition: '焦虑',
-    description: '对考试感到焦虑,影响睡眠',
-    status: 'active'
-  },
-  {
-    id: 3,
-    name: '王五',
-    grade: '四年级',
-    condition: '孤独感',
-    description: '父母外出打工,感到孤独',
-    status: 'completed'
+const students = ref([])
+
+// 加载真实学生列表
+const loadStudents = async () => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/students`, {
+      headers: {
+        'Authorization': `Bearer ${token.value}`
+      }
+    })
+    
+    if (response.ok) {
+      const data = await response.json()
+      if (data.status === 'success' && data.data.students) {
+        const psychologicalConditions = ['情绪低落', '焦虑', '孤独感', '学习压力大', '注意力不集中', '自卑']
+        const descriptions = [
+          '最近学习压力大,情绪不稳定',
+          '对考试感到焦虑,影响睡眠',
+          '父母外出打工,感到孤独',
+          '作业完成困难,经常发呆',
+          '上课走神,无法集中注意力',
+          '觉得自己不如别人,缺乏自信'
+        ]
+        const statuses = ['pending', 'active', 'completed']
+        
+        students.value = data.data.students.map((s, index) => ({
+          id: s.user_id || s.id,
+          name: s.name,
+          grade: s.grade || '五年级',
+          condition: psychologicalConditions[index % psychologicalConditions.length],
+          description: descriptions[index % descriptions.length],
+          status: statuses[index % statuses.length]
+        }))
+      }
+    }
+  } catch (error) {
+    console.error('获取学生列表失败:', error)
   }
-])
+}
 
 // 模态框状态
 const showDetailModal = ref(false)
@@ -507,25 +518,60 @@ const submitSchedule = async () => {
   }
   
   try {
-    // TODO: 调用后端API安排咨询
-    console.log('安排咨询:', {
-      studentId: selectedStudent.value.id,
-      ...scheduleForm.value
+    const selectedCounselor = counselors.value.find(c => c.id === scheduleForm.value.counselorId)
+    
+    const response = await fetch(`${API_BASE_URL}/psychological-schedules`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token.value}`
+      },
+      body: JSON.stringify({
+        studentId: selectedStudent.value.id,
+        counselorId: scheduleForm.value.counselorId,
+        counselorName: selectedCounselor.name,
+        counselorTitle: selectedCounselor.title,
+        counselorContact: selectedCounselor.phone || selectedCounselor.contact,
+        counselorPhone: selectedCounselor.phone || '',
+        counselorEmail: selectedCounselor.email || '',
+        counselorSpecialties: selectedCounselor.specialties || [],
+        counselorBio: selectedCounselor.bio || '',
+        scheduleTime: scheduleForm.value.time,
+        method: scheduleForm.value.method,
+        notes: scheduleForm.value.notes,
+        studentCondition: selectedStudent.value.condition,
+        studentDescription: selectedStudent.value.description
+      })
     })
     
-    // 更新学生状态
-    const student = students.value.find(s => s.id === selectedStudent.value.id)
-    if (student) {
-      student.status = 'active'
-    }
+    const data = await response.json()
     
-    alert('咨询安排成功！')
-    closeStudentModal()
+    if (response.ok && data.status === 'success') {
+      // 更新学生状态为进行中
+      const student = students.value.find(s => s.id === selectedStudent.value.id)
+      if (student) {
+        student.status = 'active'
+      }
+      
+      alert('咨询安排成功！学生已收到通知。')
+      closeStudentModal()
+    } else {
+      alert('安排失败: ' + (data.message || '未知错误'))
+    }
   } catch (error) {
     alert('安排失败，请稍后重试')
     console.error('安排咨询错误:', error)
   }
 }
+
+onMounted(async () => {
+  const userStr = localStorage.getItem('user')
+  if (userStr) {
+    userInfo.value = JSON.parse(userStr)
+    token.value = userInfo.value.token || ''
+  }
+  await loadStudents()
+})
 </script>
 
 <style scoped>

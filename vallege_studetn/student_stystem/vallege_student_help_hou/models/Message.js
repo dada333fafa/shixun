@@ -19,6 +19,11 @@ const messageSchema = new mongoose.Schema({
     type: String,
     required: true
   },
+  type: {
+    type: String,
+    enum: ['text', 'image', 'voice'],
+    default: 'text'
+  },
   status: {
     type: String,
     enum: ['sent', 'read'],

@@ -94,18 +94,55 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 
+const API_BASE_URL = 'http://localhost:3000/api/v1'
 const router = useRouter()
 const searchQuery = ref('')
 
 // 从 localStorage 获取用户信息
 const userInfo = ref(null)
+const token = ref('')
 
-onMounted(() => {
+onMounted(async () => {
   const userStr = localStorage.getItem('user')
   if (userStr) {
     userInfo.value = JSON.parse(userStr)
+    token.value = userInfo.value.token || ''
   }
+  
+  // 加载真实学生数据
+  await loadStudents()
 })
+
+// 加载真实学生列表
+const loadStudents = async () => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/students`, {
+      headers: {
+        'Authorization': `Bearer ${token.value}`
+      }
+    })
+    
+    if (response.ok) {
+      const data = await response.json()
+      if (data.status === 'success' && data.data.students) {
+        students.value = data.data.students.map(s => ({
+          id: s.user_id,
+          studentId: s.id,
+          name: s.name,
+          grade: s.grade || '未设置',
+          subject: '未设置',
+          status: s.status || '活跃',
+          school: s.school || '',
+          address: s.address || ''
+        }))
+      }
+    } else {
+      console.error('获取学生列表失败，状态码:', response.status)
+    }
+  } catch (error) {
+    console.error('获取学生列表失败:', error)
+  }
+}
 
 // 获取用户姓氏（用于头像显示）
 const userInitial = computed(() => {
@@ -123,12 +160,7 @@ const welcomeText = computed(() => {
   return '欢迎，李老师'
 })
 
-const students = ref([
-  { id: 1, name: '小明', grade: '三年级', subject: '数学', status: '活跃' },
-  { id: 2, name: '小红', grade: '四年级', subject: '语文', status: '活跃' },
-  { id: 3, name: '小刚', grade: '五年级', subject: '英语', status: '待确认' },
-  { id: 4, name: '小丽', grade: '六年级', subject: '数学', status: '未激活' }
-])
+const students = ref([])
 
 const filteredStudents = computed(() => {
   if (!searchQuery.value) return students.value

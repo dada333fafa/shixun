@@ -70,7 +70,7 @@
               :class="isMyMessage(msg) ? 'sent' : 'received'"
             >
               <div class="message-content">{{ msg.content }}</div>
-              <div class="message-time">{{ formatMessageTime(msg.createdAt) }}</div>
+              <div class="message-time">{{ formatMessageTime(msg.created_at) }}</div>
             </div>
             
             <div v-if="messages.length === 0" class="no-messages">
@@ -129,14 +129,15 @@ async function loadConversations() {
     const mergedChats = [...conversations]
     
     teachers.forEach(teacher => {
-      if (!conversationUserIds.has(teacher.id)) {
+      const teacherUserId = teacher.user_id || teacher.userId
+      if (teacherUserId && !conversationUserIds.has(teacherUserId)) {
         mergedChats.push({
-          userId: teacher.id,
+          userId: teacherUserId,
           username: teacher.username,
           name: teacher.name,
           lastMessage: '点击开始聊天',
-          lastMessageTime: new Date().toISOString(),
-          subject: teacher.detail?.subject || ''
+          lastMessageTime: null,
+          subject: teacher.subject || teacher.detail?.subject || ''
         })
       }
     })
@@ -181,16 +182,19 @@ async function loadChatMessages(userId) {
 }
 
 function isMyMessage(msg) {
-  if (!currentUser.value || !msg.sender) return false
+  if (!currentUser.value) return false
   
-  let senderId = null
-  if (typeof msg.sender === 'object') {
-    senderId = msg.sender._id?.toString()
-  } else {
-    senderId = msg.sender.toString()
+  // 后端返回的字段是 sender_id
+  const senderId = msg.sender_id
+  // 用户对象的 ID 字段是 _id
+  const currentUserId = currentUser.value._id || currentUser.value.id
+  
+  if (!senderId || !currentUserId) {
+    console.log('消息判断失败:', { senderId, currentUserId, currentUser: currentUser.value })
+    return false
   }
   
-  return senderId === currentUser.value.id?.toString()
+  return senderId.toString() === currentUserId.toString()
 }
 
 async function sendMessage() {
@@ -227,7 +231,11 @@ async function sendMessage() {
 }
 
 function formatTime(dateString) {
+  if (!dateString) return ''
+  
   const date = new Date(dateString)
+  if (isNaN(date.getTime())) return ''
+  
   const now = new Date()
   const diff = now - date
   
@@ -241,7 +249,11 @@ function formatTime(dateString) {
 }
 
 function formatMessageTime(dateString) {
+  if (!dateString) return ''
+  
   const date = new Date(dateString)
+  if (isNaN(date.getTime())) return ''
+  
   return `${date.getHours()}:${(date.getMinutes() < 10 ? '0' : '') + date.getMinutes()}`
 }
 

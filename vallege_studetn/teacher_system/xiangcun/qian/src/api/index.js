@@ -2,7 +2,7 @@ import axios from 'axios'
 
 // 创建axios实例
 const api = axios.create({
-  baseURL: 'http://localhost:3000/api/v1',
+  baseURL: '/api/v1', // 使用Vite代理
   timeout: 10000,
   headers: {
     'Content-Type': 'application/json'
@@ -145,6 +145,14 @@ export const messageAPI = {
   // 标记已读
   markAsRead(id) {
     return api.put(`/messages/${id}/read`)
+  }
+}
+
+// 咨询师API
+export const counselorAPI = {
+  // 获取咨询师列表
+  getCounselors() {
+    return api.get('/counselors')
   }
 }
 

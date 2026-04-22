@@ -50,14 +50,14 @@ exports.register = async (req, res) => {
     // 根据角色创建额外信息
     if (role === 'teacher') {
       await Teacher.create({
-        userId: user._id,
+        user: user._id,
         subject: subject || '未填写',
         education: education || '',
         experience: experience || ''
       });
     } else if (role === 'student') {
       await Student.create({
-        userId: user._id,
+        user: user._id,
         grade: grade || ''
       });
     }
@@ -116,7 +116,7 @@ exports.login = async (req, res) => {
     // 获取额外信息
     let extraInfo = {};
     if (role === 'teacher') {
-      const teacher = await Teacher.findOne({ userId: user._id });
+      const teacher = await Teacher.findOne({ user: user._id });
       if (teacher) {
         extraInfo = {
           subject: teacher.subject,
@@ -126,7 +126,7 @@ exports.login = async (req, res) => {
         };
       }
     } else if (role === 'student') {
-      const student = await Student.findOne({ userId: user._id });
+      const student = await Student.findOne({ user: user._id });
       if (student) {
         extraInfo = {
           grade: student.grade,
@@ -205,7 +205,7 @@ exports.getMe = async (req, res) => {
     
     let extraInfo = {};
     if (user.role === 'teacher') {
-      const teacher = await Teacher.findOne({ userId: user._id });
+      const teacher = await Teacher.findOne({ user: user._id });
       if (teacher) {
         extraInfo.teacher_info = {
           subject: teacher.subject,
@@ -215,7 +215,7 @@ exports.getMe = async (req, res) => {
         };
       }
     } else if (user.role === 'student') {
-      const student = await Student.findOne({ userId: user._id });
+      const student = await Student.findOne({ user: user._id });
       if (student) {
         extraInfo.student_info = {
           grade: student.grade,

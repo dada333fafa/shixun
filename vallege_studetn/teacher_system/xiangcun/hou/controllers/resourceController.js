@@ -15,16 +15,15 @@ exports.uploadResource = async (req, res) => {
     }
 
     // 查找或创建教师信息
-    let teacher = await Teacher.findOne({ userId: req.user.id });
+    let teacher = await Teacher.findOne({ user: req.user.id });
     
     if (!teacher) {
       // 如果没有Teacher记录，自动创建一个
       teacher = await Teacher.create({
-        userId: req.user.id,
-        name: req.user.name || '教师',
-        subject: req.user.subject || '未设置',
-        grade: req.user.grade || '未设置',
-        status: 'approved'
+        user: req.user.id,
+        subject: '未设置',
+        education: '',
+        experience: ''
       });
     }
 
@@ -41,23 +40,32 @@ exports.uploadResource = async (req, res) => {
       fileName = req.file.originalname
     }
     
+    // 中文类型转换为英文 enum 值
+    const typeMap = {
+      '课件': 'courseware',
+      '教案': 'lesson_plan',
+      '习题': 'exercise',
+      '视频': 'video'
+    };
+    const resourceTypeEn = typeMap[resource_type] || resource_type;
+
     const resource = await Resource.create({
-      teacherId: teacher._id,
+      teacher: teacher._id,
       title,
       description: description || '',
-      resourceType: resource_type,
-      // 将Windows路径转换为URL路径格式，确保以/开头
-      filePath: req.file ? '/' + req.file.path.replace(/\\/g, '/') : '',
+      resourceType: resourceTypeEn,
+      filePath: req.file ? '/uploads/resources/' + req.file.filename : '',
       fileSize: req.file ? req.file.size : 0,
-      fileName: fileName
+      fileName: fileName || (req.file ? req.file.originalname : '')
     });
 
     console.log('✅ 资源已保存到数据库:', {
       id: resource._id,
-      teacherId: resource.teacherId,
+      teacherId: resource.teacher,
       title: resource.title,
       filePath: resource.filePath,
-      fileName: resource.fileName
+      fileName: resource.fileName,
+      resourceType: resource.resourceType
     });
 
     res.status(201).json({
@@ -71,7 +79,8 @@ exports.uploadResource = async (req, res) => {
         file_path: resource.filePath,
         file_name: resource.fileName,
         file_size: resource.fileSize,
-        upload_date: resource.createdAt
+        upload_date: resource.createdAt,
+        teacher_id: teacher._id
       }
     });
   } catch (error) {
@@ -91,29 +100,33 @@ exports.getResources = async (req, res) => {
 
     let query = {};
     
-    // 默认只获取当前登录教师的资源
-    const teacher = await Teacher.findOne({ userId: req.user.id });
-    if (teacher) {
-      query.teacherId = teacher._id;
-    } else {
-      // 如果没有Teacher记录，返回空列表
-      return res.json({
-        status: 'success',
-        message: '获取成功',
-        data: {
-          resources: [],
-          pagination: {
-            total: 0,
-            page: parseInt(page),
-            page_size: parseInt(page_size),
-            pages: 0
+    // 根据用户角色决定查询逻辑
+    if (req.user.role === 'teacher') {
+      // 教师只能看到自己上传的资源
+      const teacher = await Teacher.findOne({ user: req.user.id });
+      if (teacher) {
+        query.teacher = teacher._id;
+      } else {
+        return res.json({
+          status: 'success',
+          message: '获取成功',
+          data: {
+            resources: [],
+            pagination: {
+              total: 0,
+              page: parseInt(page),
+              page_size: parseInt(page_size),
+              pages: 0
+            }
           }
-        }
-      });
+        });
+      }
     }
+    // 学生不做限制，可以看到所有教师的资源
     
+    // 如果指定了特定教师，则只看该教师的资源
     if (teacher_id) {
-      query.teacherId = teacher_id;
+      query.teacher = teacher_id;
     }
     
     if (resource_type) {
@@ -123,34 +136,66 @@ exports.getResources = async (req, res) => {
     const skip = (page - 1) * page_size;
     
     const resources = await Resource.find(query)
-      .populate('teacherId')
+      .populate({
+        path: 'teacher',
+        populate: {
+          path: 'user',
+          select: 'name'
+        }
+      })
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(parseInt(page_size));
 
     const total = await Resource.countDocuments(query);
 
+    // 处理资源数据，确保所有字段都有值
+    const formattedResources = resources.map(r => {
+      if (!r) return null;
+      
+      const teacher = r.teacher || {};
+      const teacherUser = (teacher && teacher.user) ? teacher.user : {};
+      
+      return {
+        id: r._id ? r._id.toString() : null,
+        _id: r._id ? r._id.toString() : null,
+        teacher_id: teacher._id ? teacher._id.toString() : null,
+        teacher_name: (teacherUser && teacherUser.name) ? teacherUser.name : '未知教师',
+        teacher_subject: teacher.subject || '未设置',
+        // 嵌套结构兼容前端
+        teacher: {
+          _id: teacher._id ? teacher._id.toString() : null,
+          subject: teacher.subject || '未设置',
+          user: {
+            name: (teacherUser && teacherUser.name) ? teacherUser.name : '未知教师'
+          }
+        },
+        title: r.title || '未命名资源',
+        description: r.description || '',
+        resourceType: r.resourceType || 'other',
+        resource_type: r.resourceType || 'other',
+        file_path: r.filePath || '',
+        filePath: r.filePath || '',
+        file_name: r.fileName || '未知文件',
+        fileName: r.fileName || '未知文件',
+        file_size: r.fileSize || 0,
+        fileSize: r.fileSize || 0,
+        upload_date: r.createdAt,
+        createdAt: r.createdAt,
+        updatedAt: r.updatedAt
+      };
+    }).filter(r => r !== null);
+
     res.json({
       status: 'success',
       message: '获取成功',
       data: {
-        resources: resources.map(r => ({
-          id: r._id,
-          teacher_id: r.teacherId._id,
-          teacher_name: r.teacherId.userId ? '教师' : '未知',
-          title: r.title,
-          description: r.description,
-          resource_type: r.resourceType,
-          file_path: r.filePath,
-          file_name: r.fileName,
-          file_size: r.fileSize,
-          upload_date: r.createdAt
-        })),
+        resources: formattedResources,
         pagination: {
-          total,
+          total: formattedResources.length,
           page: parseInt(page),
           page_size: parseInt(page_size),
-          pages: Math.ceil(total / page_size)
+          pages: Math.ceil(formattedResources.length / page_size)
         }
       }
     });
@@ -168,7 +213,13 @@ exports.getResources = async (req, res) => {
 exports.getResourceById = async (req, res) => {
   try {
     const resource = await Resource.findById(req.params.id)
-      .populate('teacherId');
+      .populate({
+        path: 'teacher',
+        populate: {
+          path: 'user',
+          select: 'name'
+        }
+      });
 
     if (!resource) {
       return res.status(404).json({
@@ -182,17 +233,74 @@ exports.getResourceById = async (req, res) => {
       message: '获取成功',
       data: {
         id: resource._id,
-        teacher_id: resource.teacherId._id,
-        teacher_name: resource.teacherId.userId ? '教师' : '未知',
+        teacher_id: resource.teacher._id,
+        teacher_name: resource.teacher.user ? resource.teacher.user.name : '未知',
+        teacher_subject: resource.teacher.subject || '未设置',
         title: resource.title,
         description: resource.description,
         resource_type: resource.resourceType,
         file_path: resource.filePath,
+        file_name: resource.fileName,
+        file_size: resource.fileSize,
         upload_date: resource.createdAt
       }
     });
   } catch (error) {
     console.error('获取资源详情错误:', error);
+    res.status(500).json({
+      status: 'error',
+      message: '服务器错误',
+      error: error.message
+    });
+  }
+};
+
+// 下载资源
+exports.downloadResource = async (req, res) => {
+  try {
+    const resource = await Resource.findById(req.params.id);
+
+    if (!resource) {
+      return res.status(404).json({
+        status: 'error',
+        message: '资源不存在'
+      });
+    }
+
+    if (!resource.filePath) {
+      return res.status(404).json({
+        status: 'error',
+        message: '文件不存在'
+      });
+    }
+
+    const path = require('path');
+    const fs = require('fs');
+    const filePath = path.join(__dirname, '..', resource.filePath);
+
+    if (!fs.existsSync(filePath)) {
+      return res.status(404).json({
+        status: 'error',
+        message: '文件不存在'
+      });
+    }
+
+    // 设置响应头，触发浏览器下载
+    res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(resource.fileName || 'download')}"`);
+    res.setHeader('Content-Type', 'application/octet-stream');
+    
+    // 发送文件
+    res.download(filePath, resource.fileName || 'download', (err) => {
+      if (err) {
+        console.error('下载文件错误:', err);
+        res.status(500).json({
+          status: 'error',
+          message: '下载失败'
+        });
+      }
+    });
+  } catch (error) {
+    console.error('下载资源错误:', error);
     res.status(500).json({
       status: 'error',
       message: '服务器错误',

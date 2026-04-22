@@ -21,17 +21,12 @@ const teacherStudentMatchSchema = new mongoose.Schema({
     enum: ['teacher', 'student'],
     required: true
   },
-  requestMessage: {
-    type: String
-  },
+  requestMessage: String,
   parentApproval: {
     type: Boolean,
     default: false
   },
-  matchedAt: {
-    type: Date,
-    default: null
-  }
+  matchedAt: Date
 }, {
   timestamps: true
 });
