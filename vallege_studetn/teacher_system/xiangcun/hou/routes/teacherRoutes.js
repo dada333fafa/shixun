@@ -11,7 +11,7 @@ const { protect } = require('../middleware/auth');
 router.use(protect);
 
 router.get('/', getTeachers);
-router.get('/:id', getTeacherById);
 router.get('/dashboard', getDashboard);
+router.get('/:id', getTeacherById);
 
 module.exports = router;

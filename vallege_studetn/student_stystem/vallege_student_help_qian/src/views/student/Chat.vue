@@ -121,35 +121,74 @@ onMounted(async () => {
 
 async function loadConversations() {
   try {
-    const conversations = await getConversations()
-    const teachers = await getTeachers()
+    console.log('🔄 加载学生聊天列表...')
     
-    const conversationUserIds = new Set(conversations.map(conv => conv.userId))
+    // 先获取已匹配的老师列表
+    const API_BASE_URL = '/api/v1'
+    const token = localStorage.getItem('token')
     
-    const mergedChats = [...conversations]
-    
-    teachers.forEach(teacher => {
-      const teacherUserId = teacher.user_id || teacher.userId
-      if (teacherUserId && !conversationUserIds.has(teacherUserId)) {
-        mergedChats.push({
-          userId: teacherUserId,
-          username: teacher.username,
-          name: teacher.name,
-          lastMessage: '点击开始聊天',
-          lastMessageTime: null,
-          subject: teacher.subject || teacher.detail?.subject || ''
-        })
+    const matchResponse = await fetch(`${API_BASE_URL}/matches`, {
+      headers: {
+        'Authorization': `Bearer ${token}`
       }
     })
     
-    // 按时间排序
-    mergedChats.sort((a, b) => {
+    let matchedTeachers = []
+    if (matchResponse.ok) {
+      const matchData = await matchResponse.json()
+      const matches = matchData.data || matchData || []
+      console.log('📦 匹配数据:', matches.length, '条')
+      
+      // 只添加已接受/活跃状态的老师
+      matches.forEach(match => {
+        if ((match.status === 'active' || match.status === 'approved') && match.teacher) {
+          const teacherInfo = match.teacher.user || match.teacher || {}
+          const teacherUserId = teacherInfo._id || match.teacher?._id
+          
+          if (teacherUserId) {
+            matchedTeachers.push({
+              userId: teacherUserId,
+              username: teacherInfo.name || teacherInfo.username || '老师',
+              name: teacherInfo.name || teacherInfo.username || '老师',
+              subject: match.teacher?.subject || '',
+              lastMessage: '点击开始聊天',
+              lastMessageTime: null
+            })
+          }
+        }
+      })
+      console.log('✅ 已匹配老师数量:', matchedTeachers.length)
+    }
+    
+    // 再加载消息列表（更新最后一条消息和时间）
+    const conversations = await getConversations()
+    console.log('📦 消息会话数量:', conversations.length)
+    
+    // 将消息与会话合并，只更新已匹配老师的消息
+    const chatMap = new Map()
+    
+    // 先添加已匹配的老师
+    matchedTeachers.forEach(teacher => {
+      chatMap.set(teacher.userId, teacher)
+    })
+    
+    // 然后更新消息
+    conversations.forEach(conv => {
+      if (chatMap.has(conv.userId)) {
+        const matchedTeacher = chatMap.get(conv.userId)
+        matchedTeacher.lastMessage = conv.lastMessage
+        matchedTeacher.lastMessageTime = conv.lastMessageTime
+      }
+    })
+    
+    // 转换为数组并按时间排序
+    allChats.value = Array.from(chatMap.values()).sort((a, b) => {
       if (a.lastMessage === '点击开始聊天') return 1
       if (b.lastMessage === '点击开始聊天') return -1
       return new Date(b.lastMessageTime) - new Date(a.lastMessageTime)
     })
     
-    allChats.value = mergedChats
+    console.log('💬 最终聊天列表:', allChats.value.map(c => c.name || c.username))
   } catch (error) {
     console.error('加载对话列表失败:', error)
   }
