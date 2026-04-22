@@ -86,7 +86,7 @@
 <script setup>
 import { ref, computed, onMounted, nextTick, watch } from 'vue'
 
-const API_BASE_URL = 'http://localhost:3000/api/v1'
+const API_BASE_URL = '/api/v1'
 
 // 从 localStorage 获取用户信息
 const userInfo = ref(null)
@@ -154,57 +154,67 @@ const filteredChats = computed(() => {
 // 加载聊天列表
 const loadChatList = async () => {
   try {
-    // 先加载消息列表（已有聊天的联系人）
+    console.log('🔄 加载聊天列表...')
+    let chatMap = new Map()
+    
+    // 先加载已匹配的学生（只显示已匹配的学生）
+    const matchResponse = await fetch(`${API_BASE_URL}/matches/teacher/all`, {
+      headers: {
+        'Authorization': `Bearer ${token.value}`
+      }
+    })
+    
+    if (matchResponse.ok) {
+      const matchData = await matchResponse.json()
+      const matches = matchData.data || matchData || []
+      console.log('📦 匹配数据:', matches.length, '条')
+      
+      // 只添加已接受/活跃状态的学生
+      matches.forEach(match => {
+        if ((match.status === 'active' || match.status === 'approved') && match.student) {
+          const studentInfo = match.student.user || match.student || {}
+          const userId = studentInfo._id || match.student?._id
+          
+          if (userId) {
+            chatMap.set(userId, {
+              id: userId,
+              name: studentInfo.name || '学生',
+              info: '已匹配学生',
+              lastMessage: '点击开始聊天',
+              time: '',
+              unreadCount: 0,
+              isMatched: true // 标记为已匹配
+            })
+          }
+        }
+      })
+      console.log('✅ 已匹配学生数量:', chatMap.size)
+    }
+    
+    // 再加载消息列表（更新最后一条消息和时间）
     const msgResponse = await fetch(`${API_BASE_URL}/messages/list`, {
       headers: {
         'Authorization': `Bearer ${token.value}`
       }
     })
     
-    let chatMap = new Map()
-    
     if (msgResponse.ok) {
       const data = await msgResponse.json()
       if (data.status === 'success') {
         data.data.forEach(chat => {
-          chatMap.set(chat.id, {
-            id: chat.id,
-            name: chat.name,
-            info: '学生',
-            lastMessage: chat.lastMessage,
-            time: chat.time,
-            unreadCount: chat.unreadCount || 0
-          })
-        })
-      }
-    }
-    
-    // 再加载所有学生（补充没有消息记录的学生）
-    const studentResponse = await fetch(`${API_BASE_URL}/students`, {
-      headers: {
-        'Authorization': `Bearer ${token.value}`
-      }
-    })
-    
-    if (studentResponse.ok) {
-      const studentData = await studentResponse.json()
-      if (studentData.status === 'success' && studentData.data.students) {
-        studentData.data.students.forEach(student => {
-          if (!chatMap.has(student.user_id)) {
-            chatMap.set(student.user_id, {
-              id: student.user_id,
-              name: student.name,
-              info: student.grade || '学生',
-              lastMessage: '点击开始聊天',
-              time: '',
-              unreadCount: 0
-            })
+          // 只更新已匹配学生的消息
+          if (chatMap.has(chat.id)) {
+            const matchedStudent = chatMap.get(chat.id)
+            matchedStudent.lastMessage = chat.lastMessage
+            matchedStudent.time = chat.time
+            matchedStudent.unreadCount = chat.unreadCount || 0
           }
         })
       }
     }
     
     chats.value = Array.from(chatMap.values())
+    console.log('💬 最终聊天列表:', chats.value.map(c => c.name))
     
     // 如果有聊天列表，选择第一个
     if (chats.value.length > 0 && !selectedChat.value) {

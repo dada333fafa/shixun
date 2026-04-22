@@ -121,22 +121,49 @@ exports.getDashboard = async (req, res) => {
     const resourcesCount = await Resource.countDocuments({ teacher: teacher._id });
 
     // 获取学生列表
-    const matches = await TeacherStudentMatch.find({
-      teacher: teacher._id,
-      status: { $in: ['active', 'approved', 'pending'] }
-    })
-    .populate({ path: 'student', populate: { path: 'user', select: 'name' } })
-    .limit(5);
+    let students = [];
+    try {
+      console.log('🔍 开始查询匹配数据...');
+      console.log('  Teacher ID:', teacher._id);
+      
+      const matches = await TeacherStudentMatch.find({
+        teacher: teacher._id,
+        status: { $in: ['active', 'approved', 'pending'] }
+      })
+      .populate({ 
+        path: 'student', 
+        select: 'grade',
+        populate: { path: 'user', select: 'name' } 
+      })
+      .sort({ createdAt: -1 })
+      .limit(5);
 
-    const students = matches.map(m => {
-      const studentInfo = m.student?.user || m.student || {};
-      return {
-        id: m.student?._id || m._id,
-        name: studentInfo.name || '学生',
-        grade: m.student?.grade || '未设置',
-        status: m.status === 'pending' ? '待确认' : '活跃'
-      };
-    });
+      console.log('📦 匹配数据数量:', matches.length);
+      matches.forEach((m, index) => {
+        console.log(`📦 学生${index + 1}:`, {
+          studentName: m.student?.user?.name || '未找到',
+          studentId: m.student?._id,
+          status: m.status,
+          grade: m.student?.grade
+        });
+      });
+
+      students = matches.filter(m => m.student).map(m => {
+        const studentInfo = m.student.user || {};
+        return {
+          id: m.student._id.toString(),
+          name: studentInfo.name || '学生',
+          grade: m.student.grade || '未设置',
+          status: m.status === 'pending' ? '待确认' : '活跃'
+        };
+      });
+      
+      console.log('✅ 最终学生列表:', students);
+    } catch (matchError) {
+      console.error('❌ 获取匹配数据错误:', matchError.message);
+      console.error('❌ 错误堆栈:', matchError.stack);
+      students = [];
+    }
 
     res.json({
       status: 'success',

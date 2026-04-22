@@ -77,7 +77,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 
-const API_BASE_URL = 'http://localhost:3000/api/v1'
+const API_BASE_URL = '/api/v1'
 const router = useRouter()
 
 // 从 localStorage 获取用户信息
@@ -109,28 +109,48 @@ onMounted(async () => {
 // 加载仪表盘数据
 const loadDashboard = async () => {
   try {
+    console.log('🔄 加载教师仪表盘数据...')
+    console.log('🔑 Token:', token.value ? token.value.substring(0, 20) + '...' : '无')
+    
     const response = await fetch(`${API_BASE_URL}/teachers/dashboard`, {
       headers: {
         'Authorization': `Bearer ${token.value}`
       }
     })
     
+    console.log('📡 响应状态:', response.status, response.statusText)
+    
     if (response.ok) {
       const data = await response.json()
+      console.log('📦 后端返回数据:', JSON.stringify(data, null, 2))
+      
       if (data.status === 'success' && data.data) {
         // 更新统计数据
         stats.value = data.data.stats || stats.value
         // 更新学生列表
-        students.value = (data.data.students || []).map(s => ({
+        const studentsData = data.data.students || []
+        console.log('📊 学生数据:', studentsData)
+        
+        students.value = studentsData.map(s => ({
           id: s.id,
           name: s.name,
           grade: s.grade || '未设置',
           status: s.status || '活跃'
         }))
       }
+    } else {
+      const errorData = await response.json()
+      console.error('❌ 加载仪表盘数据失败:', response.status, errorData)
+      
+      if (response.status === 401) {
+        alert('登录已过期，请重新登录')
+        localStorage.removeItem('token')
+        localStorage.removeItem('user')
+        router.push('/login')
+      }
     }
   } catch (error) {
-    console.error('加载仪表盘数据失败:', error)
+    console.error('❌ 加载仪表盘数据异常:', error)
   }
 }
 
