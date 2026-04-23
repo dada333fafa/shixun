@@ -69,6 +69,28 @@
           >
         </div>
         
+        <div class="form-group" v-if="selectedRole === 'student'">
+          <label for="grade">年级</label>
+          <select 
+            id="grade" 
+            v-model="form.grade"
+          >
+            <option value="">请选择年级</option>
+            <option value="一年级">一年级</option>
+            <option value="二年级">二年级</option>
+            <option value="三年级">三年级</option>
+            <option value="四年级">四年级</option>
+            <option value="五年级">五年级</option>
+            <option value="六年级">六年级</option>
+            <option value="七年级">七年级</option>
+            <option value="八年级">八年级</option>
+            <option value="九年级">九年级</option>
+            <option value="高一">高一</option>
+            <option value="高二">高二</option>
+            <option value="高三">高三</option>
+          </select>
+        </div>
+        
         <div class="role-selection">
           <label>选择角色</label>
           <div class="role-options">
@@ -111,7 +133,8 @@ const form = reactive({
   confirmPassword: '',
   name: '',
   email: '',
-  phone: ''
+  phone: '',
+  grade: ''
 })
 
 const selectedRole = ref(null)
@@ -157,7 +180,8 @@ const handleRegister = async () => {
       role: selectedRole.value,
       name: form.name,
       email: form.email,
-      phone: form.phone
+      phone: form.phone,
+      grade: selectedRole.value === 'student' ? (form.grade || '未填写') : undefined
     }
     
     console.log('发送注册数据:', registerData)

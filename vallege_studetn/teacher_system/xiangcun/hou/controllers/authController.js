@@ -56,10 +56,14 @@ exports.register = async (req, res) => {
         experience: experience || ''
       });
     } else if (role === 'student') {
+      // 学生注册时自动创建Student记录
       await Student.create({
         user: user._id,
-        grade: grade || ''
+        grade: grade || '未填写',
+        school: '',
+        address: ''
       });
+      console.log('✅ 已为学生创建记录, User ID:', user._id);
     }
 
     res.status(201).json({
