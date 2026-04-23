@@ -1,46 +1,35 @@
 <template>
   <div>
-    <div class="teacher-list">
-      <h2>孩子的教师</h2>
-      <div v-for="teacher in teachers" :key="teacher._id" class="teacher-item" @click="selectTeacher(teacher)">
-        <div class="teacher-avatar">{{ teacher.user_id?.name?.charAt(0) || '教' }}</div>
-        <div class="teacher-info">
-          <div class="teacher-name">{{ teacher.user_id?.name || '未知教师' }}</div>
-          <div class="teacher-subject">{{ teacher.subject || '未知科目' }}教师</div>
+    <!-- 按孩子分组显示教师 -->
+    <div v-for="(childData, childIndex) in childrenWithTeachers" :key="childData.child._id" class="child-teacher-section">
+      <div class="child-header">
+        <h3>{{ childData.child.user_id?.name || '未知孩子' }}的教师</h3>
+      </div>
+      <div class="teacher-list">
+        <div v-for="teacher in childData.teachers" :key="teacher._id" class="teacher-item">
+          <div class="teacher-avatar">{{ teacher.user?.name?.charAt(0) || '教' }}</div>
+          <div class="teacher-info">
+            <div class="teacher-name">{{ teacher.user?.name || '未知教师' }}</div>
+            <div class="teacher-subject">{{ teacher.subject || '未设置' }}教师</div>
+          </div>
+          <button class="btn btn-primary" @click="goToChat(teacher, childData.child)">沟通</button>
         </div>
-        <button class="btn btn-primary">沟通</button>
       </div>
     </div>
     
-    <div class="message-history">
-      <h2>沟通记录</h2>
-      <div v-for="message in messages" :key="message._id" 
-           :class="['message-item', message.sender_id?._id === userId ? 'message-sent' : 'message-received']">
-        <div class="message-header">
-          <span class="message-sender">{{ message.sender_id?.name || '未知' }}</span>
-          <span class="message-time">{{ formatTime(message.created_at) }}</span>
-        </div>
-        <div class="message-content">{{ message.content }}</div>
-      </div>
-      <div class="message-input">
-        <textarea v-model="newMessage" placeholder="输入消息..."></textarea>
-        <button class="btn btn-primary" @click="sendMessage">发送</button>
-      </div>
-    </div>
+    <!-- 移除旧的消息显示区域 -->
   </div>
 </template>
 
 <script>
-import { get, post } from '../api/config.js'
+import { get } from '../api/config.js'
 
 export default {
   name: 'ParentTeacherCommunication',
   data() {
     return {
-      teachers: [],
-      messages: [],
-      newMessage: '',
-      selectedTeacher: null
+      children: [],
+      childrenWithTeachers: []
     }
   },
   computed: {
@@ -48,17 +37,16 @@ export default {
       const userStr = localStorage.getItem('user')
       if (userStr) {
         const user = JSON.parse(userStr)
-        return user._id
+        return user.id || user._id
       }
       return null
     }
   },
   mounted() {
-    this.fetchTeachers()
-    this.fetchMessages()
+    this.fetchChildren()
   },
   methods: {
-    async fetchTeachers() {
+    async fetchChildren() {
       if (!this.userId) {
         console.error('用户ID不存在，请重新登录')
         alert('用户ID不存在，请重新登录')
@@ -66,74 +54,49 @@ export default {
       }
       
       try {
-        // 获取与当前家长相关的教师列表
-        const response = await get(`/parents/teachers/${this.userId}`)
+        // 获取家长的所有孩子
+        const response = await get(`/parents/children/${this.userId}`)
         if (response.success) {
-          this.teachers = response.teachers
+          this.children = response.children
+          // 获取每个孩子的教师
+          this.fetchTeachersForEachChild()
         }
       } catch (error) {
-        console.error('获取教师列表失败:', error)
+        console.error('获取孩子列表失败:', error)
       }
     },
-    async fetchMessages() {
-      if (!this.userId) {
-        console.error('用户ID不存在，请重新登录')
-        alert('用户ID不存在，请重新登录')
-        return
-      }
+    async fetchTeachersForEachChild() {
+      this.childrenWithTeachers = []
       
-      try {
-        const response = await get(`/messages/${this.userId}`)
-        if (response.success) {
-          this.messages = response.messages
+      for (const child of this.children) {
+        try {
+          // 获取与当前孩子相关的教师列表
+          const response = await get(`/parents/child-teachers/${child._id}`)
+          if (response.success) {
+            this.childrenWithTeachers.push({
+              child: child,
+              teachers: response.teachers || []
+            })
+          }
+        } catch (error) {
+          console.error(`获取孩子 ${child.user_id?.name} 的教师列表失败:`, error)
+          // 即使失败也添加孩子，只是教师列表为空
+          this.childrenWithTeachers.push({
+            child: child,
+            teachers: []
+          })
         }
-      } catch (error) {
-        console.error('获取消息失败:', error)
       }
     },
-    async sendMessage() {
-      if (!this.newMessage.trim()) {
-        alert('请输入消息内容')
-        return
-      }
-      
-      if (!this.userId) {
-        console.error('用户ID不存在，请重新登录')
-        alert('用户ID不存在，请重新登录')
-        return
-      }
-      
-      try {
-        const response = await post('/messages/send', {
-          sender_id: this.userId,
-          receiver_id: this.selectedTeacher?._id || this.teachers[0]?._id,
-          content: this.newMessage
-        })
-        
-        if (response.success) {
-          this.newMessage = ''
-          this.fetchMessages()
-        } else {
-          alert('发送失败：' + response.message)
+    goToChat(teacher, child) {
+      // 跳转到聊天页面，传递必要的参数
+      this.$router.push({
+        path: '/teacher-chat',
+        query: {
+          teacherId: teacher.user._id,
+          teacherName: teacher.user.name || '教师',
+          childName: child.user_id?.name || '孩子'
         }
-      } catch (error) {
-        console.error('发送消息失败:', error)
-        alert('发送消息失败')
-      }
-    },
-    selectTeacher(teacher) {
-      this.selectedTeacher = teacher
-      console.log('选择教师:', teacher)
-    },
-    formatTime(dateString) {
-      if (!dateString) return ''
-      const date = new Date(dateString)
-      return date.toLocaleString('zh-CN', {
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-        hour: '2-digit',
-        minute: '2-digit'
       })
     }
   }
@@ -141,12 +104,28 @@ export default {
 </script>
 
 <style scoped>
+.child-teacher-section {
+  margin-bottom: 30px;
+}
+
+.child-header {
+  background: #FFF3E0;
+  padding: 15px 20px;
+  border-radius: 10px 10px 0 0;
+  border-left: 5px solid #FF9800;
+}
+
+.child-header h3 {
+  color: #FF9800;
+  margin: 0;
+  font-size: 1.3em;
+}
+
 .teacher-list {
   background: white;
   padding: 20px;
-  border-radius: 10px;
+  border-radius: 0 0 10px 10px;
   box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-  margin-bottom: 30px;
 }
 
 .teacher-list h2 {
@@ -162,6 +141,10 @@ export default {
   border-bottom: 1px solid #e0e0e0;
   transition: all 0.3s ease;
   cursor: pointer;
+}
+
+.teacher-item:last-child {
+  border-bottom: none;
 }
 
 .teacher-item:hover {
@@ -230,6 +213,12 @@ export default {
   font-size: 1.5em;
 }
 
+.messages-container {
+  max-height: 500px;
+  overflow-y: auto;
+  margin-bottom: 20px;
+}
+
 .message-item {
   margin-bottom: 20px;
   padding: 15px;
@@ -288,6 +277,13 @@ export default {
   outline: none;
   border-color: #FF9800;
   box-shadow: 0 0 0 3px rgba(255, 152, 0, 0.1);
+}
+
+.no-selection {
+  color: #999;
+  text-align: center;
+  padding: 50px 0;
+  font-size: 1.1em;
 }
 
 @media (max-width: 768px) {

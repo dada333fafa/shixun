@@ -1,142 +1,143 @@
 <template>
-  <div class="container">
+  <div class="login-container">
     <div class="login-card">
       <div class="logo">🎓</div>
       <h1>登录乡村助学平台</h1>
       
-      <form>
+      <form @submit.prevent="handleLogin">
+        <div v-if="errorMessage" class="error-message">
+          {{ errorMessage }}
+        </div>
+        
         <div class="form-group">
           <label for="username">用户名</label>
-          <input type="text" id="username" v-model="username" placeholder="请输入用户名">
+          <input 
+            type="text" 
+            id="username" 
+            v-model="form.username" 
+            placeholder="请输入用户名"
+          >
         </div>
         
         <div class="form-group">
           <label for="password">密码</label>
-          <input type="password" id="password" v-model="password" placeholder="请输入密码">
+          <input 
+            type="password" 
+            id="password" 
+            v-model="form.password" 
+            placeholder="请输入密码"
+          >
         </div>
         
         <div class="role-selection">
           <label>选择角色</label>
           <div class="role-options">
-            <div class="role-option" :class="{ selected: selectedRole === 'teacher' }" @click="selectRole('teacher')">
-              <i>👩‍🏫</i>
-              <span>教育教师</span>
-            </div>
-            <div class="role-option" :class="{ selected: selectedRole === 'student' }" @click="selectRole('student')">
-              <i>👨‍🎓</i>
-              <span>儿童/学生</span>
-            </div>
-            <div class="role-option" :class="{ selected: selectedRole === 'parent' }" @click="selectRole('parent')">
-              <i>👨‍👩‍👧‍👦</i>
-              <span>家长/监护人</span>
-            </div>
-            <div class="role-option" :class="{ selected: selectedRole === 'admin' }" @click="selectRole('admin')">
-              <i>🔧</i>
-              <span>管理员</span>
+            <div 
+              v-for="role in roles" 
+              :key="role.value"
+              class="role-option"
+              :class="{ selected: selectedRole === role.value }"
+              @click="selectRole(role.value)"
+            >
+              <i>{{ role.icon }}</i>
+              <span>{{ role.label }}</span>
             </div>
           </div>
         </div>
         
-        <button type="button" class="btn-login" @click="login">登录</button>
+        <button type="submit" class="btn-login" :disabled="loading">
+          {{ loading ? '登录中...' : '登录' }}
+        </button>
         
         <div class="links">
-          <a @click="$router.push('/register')">注册新账号</a>
-          <a @click="$router.push('/forgot-password')">忘记密码</a>
-          <a @click="$router.push('/')">返回首页</a>
+          <router-link to="/register">注册新账号</router-link>
+          <router-link to="/forgot-password">忘记密码</router-link>
+          <router-link to="/">返回首页</router-link>
         </div>
       </form>
     </div>
   </div>
 </template>
 
-<script>
-import { post } from '../api/config'
+<script setup>
+import { ref, reactive } from 'vue'
+import { useRouter } from 'vue-router'
+import { authAPI } from '../api/index'
 
-export default {
-  name: 'Login',
-  data() {
-    return {
-      username: '',
-      password: '',
-      selectedRole: null
-    }
-  },
-  methods: {
-    selectRole(role) {
-      this.selectedRole = role
-    },
-    async login() {
-      if (!this.username || !this.password) {
-        alert('请输入用户名和密码')
-        return
+const router = useRouter()
+
+const form = reactive({
+  username: '',
+  password: ''
+})
+
+const selectedRole = ref(null)
+const loading = ref(false)
+const errorMessage = ref('')
+
+const roles = [
+  { value: 'teacher', icon: '👩‍🏫', label: '教育教师' },
+  { value: 'student', icon: '👨‍🎓', label: '儿童/学生' },
+  { value: 'parent', icon: '👨‍👩‍👧‍👦', label: '家长/监护人' },
+  { value: 'admin', icon: '🔧', label: '管理员' }
+]
+
+const selectRole = (role) => {
+  selectedRole.value = role
+}
+
+const handleLogin = async () => {
+  errorMessage.value = ''
+  
+  if (!form.username || !form.password) {
+    errorMessage.value = '请输入用户名和密码'
+    return
+  }
+  
+  if (!selectedRole.value) {
+    errorMessage.value = '请选择角色'
+    return
+  }
+  
+  try {
+    loading.value = true
+    const result = await authAPI.login({
+      username: form.username,
+      password: form.password,
+      role: selectedRole.value
+    })
+    
+    if (result.status === 'success' && result.data.token) {
+      // 保存Token和用户信息到localStorage
+      const userData = {
+        ...result.data.user,
+        token: result.data.token  // 将token保存到user对象中
+      }
+      localStorage.setItem('user', JSON.stringify(userData))
+      
+      // 根据角色跳转到相应的仪表盘
+      const routes = {
+        teacher: '/teacher/dashboard',
+        student: '/student/dashboard',
+        parent: '/parent/dashboard',
+        admin: '/admin/dashboard'
       }
       
-      if (!this.selectedRole) {
-        alert('请选择角色')
-        return
-      }
-      
-      try {
-        // 调用后端登录API
-        const response = await post('/auth/login', {
-          username: this.username,
-          password: this.password
-        })
-        
-        if (response.success) {
-          // 登录成功，检查角色是否匹配
-          if (response.user.role === this.selectedRole) {
-            // 清除旧的用户信息，然后存储新的用户信息
-            localStorage.removeItem('user')
-            localStorage.setItem('user', JSON.stringify(response.user))
-            
-            // 根据角色跳转到相应的界面
-            switch(this.selectedRole) {
-              case 'teacher':
-                this.$router.push('/teacher-dashboard').then(() => {
-                  // 强制刷新页面，确保所有组件都能获取到最新的用户信息
-                  window.location.reload()
-                })
-                break
-              case 'student':
-                this.$router.push('/student-dashboard').then(() => {
-                  window.location.reload()
-                })
-                break
-              case 'parent':
-                this.$router.push('/parent-dashboard').then(() => {
-                  window.location.reload()
-                })
-                break
-              case 'admin':
-                this.$router.push('/admin-dashboard').then(() => {
-                  window.location.reload()
-                })
-                break
-            }
-          } else {
-            alert('角色选择错误')
-          }
-        } else {
-          alert(response.message)
-        }
-      } catch (error) {
-        alert('登录失败，请稍后重试')
-        console.error('登录失败:', error)
-      }
+      router.push(routes[selectedRole.value])
+    } else {
+      errorMessage.value = result.message || '登录失败'
     }
+  } catch (error) {
+    errorMessage.value = error.message || '登录失败，请稍后重试'
+    console.error('登录错误:', error)
+  } finally {
+    loading.value = false
   }
 }
 </script>
 
 <style scoped>
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
-}
-
-body {
+.login-container {
   font-family: 'Arial', sans-serif;
   background-color: #f0f8ff;
   color: #333;
@@ -146,15 +147,11 @@ body {
   min-height: 100vh;
 }
 
-.container {
+.login-card {
   max-width: 500px;
   width: 100%;
-  padding: 20px;
-}
-
-.login-card {
-  background: white;
   padding: 40px;
+  background: white;
   border-radius: 15px;
   box-shadow: 0 8px 20px rgba(0,0,0,0.1);
   text-align: center;
@@ -265,18 +262,27 @@ input[type="password"]:focus {
   color: #4CAF50;
   text-decoration: none;
   margin: 0 10px;
-  cursor: pointer;
 }
 
 .links a:hover {
   text-decoration: underline;
 }
 
+.btn-login:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.error-message {
+  background-color: #ffebee;
+  color: #c62828;
+  padding: 12px;
+  border-radius: 8px;
+  margin-bottom: 20px;
+  border: 1px solid #ef9a9a;
+}
+
 @media (max-width: 768px) {
-  .container {
-    padding: 10px;
-  }
-  
   .login-card {
     padding: 20px;
   }

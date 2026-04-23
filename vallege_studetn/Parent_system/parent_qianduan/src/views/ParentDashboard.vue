@@ -84,7 +84,7 @@ export default {
       const userStr = localStorage.getItem('user')
       if (userStr) {
         const user = JSON.parse(userStr)
-        return user._id
+        return user.id || user._id
       }
       return null
     }

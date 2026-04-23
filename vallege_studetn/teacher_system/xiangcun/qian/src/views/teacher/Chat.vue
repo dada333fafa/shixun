@@ -40,7 +40,7 @@
             <div class="chat-avatar">{{ chat.name[0] }}</div>
             <div class="chat-info">
               <div class="chat-name">{{ chat.name }}</div>
-              <div class="chat-message">{{ chat.lastMessage }}</div>
+              <div class="chat-message">{{ chat.info || chat.lastMessage }}</div>
             </div>
             <div class="chat-time">{{ chat.time }}</div>
           </div>
@@ -155,43 +155,8 @@ const filteredChats = computed(() => {
 const loadChatList = async () => {
   try {
     console.log('🔄 加载聊天列表...')
-    let chatMap = new Map()
     
-    // 先加载已匹配的学生（只显示已匹配的学生）
-    const matchResponse = await fetch(`${API_BASE_URL}/matches/teacher/all`, {
-      headers: {
-        'Authorization': `Bearer ${token.value}`
-      }
-    })
-    
-    if (matchResponse.ok) {
-      const matchData = await matchResponse.json()
-      const matches = matchData.data || matchData || []
-      console.log('📦 匹配数据:', matches.length, '条')
-      
-      // 只添加已接受/活跃状态的学生
-      matches.forEach(match => {
-        if ((match.status === 'active' || match.status === 'approved') && match.student) {
-          const studentInfo = match.student.user || match.student || {}
-          const userId = studentInfo._id || match.student?._id
-          
-          if (userId) {
-            chatMap.set(userId, {
-              id: userId,
-              name: studentInfo.name || '学生',
-              info: '已匹配学生',
-              lastMessage: '点击开始聊天',
-              time: '',
-              unreadCount: 0,
-              isMatched: true // 标记为已匹配
-            })
-          }
-        }
-      })
-      console.log('✅ 已匹配学生数量:', chatMap.size)
-    }
-    
-    // 再加载消息列表（更新最后一条消息和时间）
+    // 直接从后端获取已匹配的学生聊天列表
     const msgResponse = await fetch(`${API_BASE_URL}/messages/list`, {
       headers: {
         'Authorization': `Bearer ${token.value}`
@@ -200,25 +165,15 @@ const loadChatList = async () => {
     
     if (msgResponse.ok) {
       const data = await msgResponse.json()
-      if (data.status === 'success') {
-        data.data.forEach(chat => {
-          // 只更新已匹配学生的消息
-          if (chatMap.has(chat.id)) {
-            const matchedStudent = chatMap.get(chat.id)
-            matchedStudent.lastMessage = chat.lastMessage
-            matchedStudent.time = chat.time
-            matchedStudent.unreadCount = chat.unreadCount || 0
-          }
-        })
+      if (data.status === 'success' || data.success) {
+        chats.value = data.data || data.chats || []
+        console.log('💬 聊天列表:', chats.value.map(c => c.name))
+        
+        // 如果有聊天列表，选择第一个
+        if (chats.value.length > 0 && !selectedChat.value) {
+          selectChat(chats.value[0])
+        }
       }
-    }
-    
-    chats.value = Array.from(chatMap.values())
-    console.log('💬 最终聊天列表:', chats.value.map(c => c.name))
-    
-    // 如果有聊天列表，选择第一个
-    if (chats.value.length > 0 && !selectedChat.value) {
-      selectChat(chats.value[0])
     }
   } catch (error) {
     console.error('加载聊天列表失败:', error)
@@ -282,7 +237,7 @@ const sendMessage = async () => {
     })
     
     const data = await response.json()
-    if (data.status === 'success') {
+    if (data.status === 'success' || data.success) {
       // 添加新消息到列表
       messages.value.push({
         id: data.data.id,

@@ -1,56 +1,34 @@
 <template>
-  <div class="container">
+  <div class="home-container">
     <header>
       <h1>乡村助学平台</h1>
       <p class="subtitle">连接城市教师与乡村孩子的桥梁</p>
       <div class="nav">
-        <button @click="$router.push('/login')">登录</button>
-        <button @click="$router.push('/register')">注册</button>
-        <button @click="$router.push('/about')">关于我们</button>
+        <router-link to="/login">登录</router-link>
+        <router-link to="/register">注册</router-link>
+        <router-link to="/about">关于我们</router-link>
       </div>
     </header>
     
     <section class="hero">
       <h2>让每个孩子都能接受优质教育</h2>
-      <p>乡村助学平台致力于解决教育公平问题，为乡村孩子提供优质的教育资源和心理支持。通过连接城市教师和乡村学生，我们希望能够缩小城乡教育差距，让每个孩子都能拥有平等的学习机会。</p>
+      <p>乡村助学平台致力于解决教育公平问题,为乡村孩子提供优质的教育资源和心理支持。通过连接城市教师和乡村学生,我们希望能够缩小城乡教育差距,让每个孩子都能拥有平等的学习机会。</p>
     </section>
     
     <section class="features">
-      <div class="feature-card">
-        <div class="feature-icon">📚</div>
-        <h3>教学辅导</h3>
-        <p>城市教师为乡村学生提供一对一的教学辅导，帮助他们解决学习问题，提高学习成绩。</p>
-      </div>
-      <div class="feature-card">
-        <div class="feature-icon">❤️</div>
-        <h3>心理教育</h3>
-        <p>为留守儿童提供及时的心理干预和支持，帮助他们健康成长，建立积极的心态。</p>
-      </div>
-      <div class="feature-card">
-        <div class="feature-icon">🤖</div>
-        <h3>AI智能匹配</h3>
-        <p>利用AI技术为学生匹配合适的教师，为教师筛选目标学生，提高教学效率和质量。</p>
+      <div class="feature-card" v-for="feature in features" :key="feature.title">
+        <div class="feature-icon">{{ feature.icon }}</div>
+        <h3>{{ feature.title }}</h3>
+        <p>{{ feature.description }}</p>
       </div>
     </section>
     
     <section class="roles">
       <h2>系统角色</h2>
       <div class="role-cards">
-        <div class="role-card">
-          <h3>教育教师</h3>
-          <p>提供教学辅导和心理教育</p>
-        </div>
-        <div class="role-card">
-          <h3>儿童/学生</h3>
-          <p>接受教育辅导和心理支持</p>
-        </div>
-        <div class="role-card">
-          <h3>家长/监护人</h3>
-          <p>了解孩子的学习情况和心理状态</p>
-        </div>
-        <div class="role-card">
-          <h3>管理员</h3>
-          <p>管理系统用户和内容</p>
+        <div class="role-card" v-for="role in roles" :key="role.title">
+          <h3>{{ role.title }}</h3>
+          <p>{{ role.description }}</p>
         </div>
       </div>
     </section>
@@ -61,26 +39,52 @@
   </div>
 </template>
 
-<script>
-export default {
-  name: 'Home'
-}
+<script setup>
+import { ref } from 'vue'
+
+const features = ref([
+  {
+    icon: '📚',
+    title: '教学辅导',
+    description: '城市教师为乡村学生提供一对一的教学辅导,帮助他们解决学习问题,提高学习成绩。'
+  },
+  {
+    icon: '❤️',
+    title: '心理教育',
+    description: '为留守儿童提供及时的心理干预和支持,帮助他们健康成长,建立积极的心态。'
+  },
+  {
+    icon: '🤖',
+    title: 'AI智能匹配',
+    description: '利用AI技术为学生匹配合适的教师,为教师筛选目标学生,提高教学效率和质量。'
+  }
+])
+
+const roles = ref([
+  {
+    title: '教育教师',
+    description: '提供教学辅导和心理教育'
+  },
+  {
+    title: '儿童/学生',
+    description: '接受教育辅导和心理支持'
+  },
+  {
+    title: '家长/监护人',
+    description: '了解孩子的学习情况和心理状态'
+  },
+  {
+    title: '管理员',
+    description: '管理系统用户和内容'
+  }
+])
 </script>
 
 <style scoped>
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
-}
-
-body {
+.home-container {
   font-family: 'Arial', sans-serif;
   background-color: #f0f8ff;
   color: #333;
-}
-
-.container {
   max-width: 1200px;
   margin: 0 auto;
   padding: 20px;
@@ -97,24 +101,28 @@ header {
 }
 
 h1 {
-  font-size: 2.5em;
-  margin-bottom: 10px;
+  font-size: 2.2em;
+  margin-bottom: 20px;
   text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+  color: white;
+  font-weight: bold;
 }
 
 .subtitle {
   font-size: 1.2em;
-  margin-bottom: 20px;
+  margin-bottom: 25px;
+  margin-top: 5px;
+  color: white;
 }
 
 .nav {
   display: flex;
   justify-content: center;
   gap: 20px;
-  margin-top: 20px;
+  margin-top: 25px;
 }
 
-.nav button {
+.nav a {
   background-color: white;
   color: #4CAF50;
   border: none;
@@ -125,9 +133,10 @@ h1 {
   cursor: pointer;
   transition: all 0.3s ease;
   box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  text-decoration: none;
 }
 
-.nav button:hover {
+.nav a:hover {
   background-color: #e8f5e8;
   transform: translateY(-2px);
   box-shadow: 0 4px 8px rgba(0,0,0,0.15);
@@ -145,7 +154,8 @@ h1 {
 .hero h2 {
   color: #4CAF50;
   margin-bottom: 20px;
-  font-size: 2em;
+  font-size: 1.7em;
+  font-weight: 550;
 }
 
 .hero p {
@@ -167,6 +177,7 @@ h1 {
   border-radius: 10px;
   box-shadow: 0 4px 6px rgba(0,0,0,0.05);
   transition: all 0.3s ease;
+  text-align: left;
 }
 
 .feature-card:hover {
@@ -202,7 +213,8 @@ h1 {
   color: #4CAF50;
   margin-bottom: 30px;
   text-align: center;
-  font-size: 2em;
+  font-size: 1.7em;
+  font-weight: 600;
 }
 
 .role-cards {
@@ -245,7 +257,7 @@ footer {
     align-items: center;
   }
   
-  .nav button {
+  .nav a {
     width: 200px;
   }
   

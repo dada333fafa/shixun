@@ -214,14 +214,24 @@ const LearningProgress = mongoose.model('LearningProgress', LearningProgressSche
 const PsychologicalStatusSchema = new mongoose.Schema({
   student_id: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'Student',
-    required: true
+    ref: 'Student'
+  },
+  student: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Student'
   },
   assessment_date: {
-    type: Date,
-    required: true
+    type: Date
+  },
+  assessmentDate: {
+    type: Date
   },
   emotional_state: {
+    type: String,
+    enum: ['excellent', 'good', 'normal', 'poor', 'critical'],
+    default: 'normal'
+  },
+  emotionalState: {
     type: String,
     enum: ['excellent', 'good', 'normal', 'poor', 'critical'],
     default: 'normal'
@@ -230,11 +240,20 @@ const PsychologicalStatusSchema = new mongoose.Schema({
     type: Number,
     default: 0
   },
+  anxietyLevel: {
+    type: Number,
+    default: 0
+  },
   depression_level: {
     type: Number,
     default: 0
   },
+  depressionLevel: {
+    type: Number,
+    default: 0
+  },
   counselor_notes: String,
+  counselorNotes: String,
   recommendation: String,
   created_at: {
     type: Date,
@@ -531,9 +550,20 @@ app.get('/api/psychological-status/:studentId', async (req, res) => {
       return res.status(400).json({ success: false, message: '无效的学生ID' });
     }
     
-    const status = await PsychologicalStatus.find({ student_id: new ObjectId(studentId) }).sort({ assessment_date: -1 });
+    // 查询学生端的心理状态数据（使用student字段）
+    const status = await PsychologicalStatus.find({ student_id: new ObjectId(studentId) })
+      .sort({ assessment_date: -1 });
+    
+    // 如果没有找到，尝试使用student字段查询（学生端使用的字段名）
+    if (status.length === 0) {
+      const statusFromStudent = await PsychologicalStatus.find({ student: new ObjectId(studentId) })
+        .sort({ assessment_date: -1 });
+      return res.json({ success: true, status: statusFromStudent });
+    }
+    
     res.json({ success: true, status });
   } catch (error) {
+    console.error('获取心理状态失败:', error);
     res.status(500).json({ success: false, message: '服务器错误' });
   }
 });
@@ -725,6 +755,32 @@ app.get('/api/parents/teachers/:userId', async (req, res) => {
   }
 });
 
+// 按孩子获取教师列表路由
+app.get('/api/parents/child-teachers/:childId', async (req, res) => {
+  try {
+    const { childId } = req.params;
+    
+    // 验证childId是否为有效的ObjectId
+    if (!ObjectId.isValid(childId)) {
+      return res.status(400).json({ success: false, message: '无效的孩子ID' });
+    }
+    
+    // 获取与这个孩子相关的匹配记录
+    const matches = await TeacherStudentMatch.find({
+      student_id: new ObjectId(childId),
+      status: { $in: ['active', 'approved'] }
+    }).distinct('teacher_id');
+    
+    // 获取教师信息
+    const teachers = await Teacher.find({ _id: { $in: matches } }).populate('user_id');
+    
+    res.json({ success: true, teachers });
+  } catch (error) {
+    console.error('获取孩子教师列表失败:', error);
+    res.status(500).json({ success: false, message: '服务器错误' });
+  }
+});
+
 // 发送消息路由
 app.post('/api/messages/send', async (req, res) => {
   try {
@@ -743,9 +799,40 @@ app.post('/api/messages/send', async (req, res) => {
     
     const savedMessage = await message.save();
     
+    // 填充发送者和接收者信息
+    await savedMessage.populate('sender_id');
+    await savedMessage.populate('receiver_id');
+    
     res.json({ success: true, message: '消息发送成功', data: savedMessage });
   } catch (error) {
     console.error('发送消息失败:', error);
+    res.status(500).json({ success: false, message: '服务器错误' });
+  }
+});
+
+// 获取两人之间的对话记录
+app.get('/api/messages/conversation/:userId1/:userId2', async (req, res) => {
+  try {
+    const { userId1, userId2 } = req.params;
+    
+    // 验证userId1和userId2是否为有效的ObjectId
+    if (!ObjectId.isValid(userId1) || !ObjectId.isValid(userId2)) {
+      return res.status(400).json({ success: false, message: '无效的用户ID' });
+    }
+    
+    const messages = await Message.find({
+      $or: [
+        { sender_id: new ObjectId(userId1), receiver_id: new ObjectId(userId2) },
+        { sender_id: new ObjectId(userId2), receiver_id: new ObjectId(userId1) }
+      ]
+    })
+      .populate('sender_id')
+      .populate('receiver_id')
+      .sort({ created_at: 1 });
+    
+    res.json({ success: true, messages });
+  } catch (error) {
+    console.error('获取对话记录失败:', error);
     res.status(500).json({ success: false, message: '服务器错误' });
   }
 });

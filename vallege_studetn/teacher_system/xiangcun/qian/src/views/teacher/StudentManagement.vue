@@ -80,6 +80,13 @@
                 >
                   激活
                 </button>
+                <button 
+                  class="btn btn-success" 
+                  @click="openEvaluationDialog(student)"
+                  v-if="student.status === '活跃'"
+                >
+                  评价
+                </button>
                 <button class="btn btn-secondary" @click="handleDetail(student)">详情</button>
               </td>
             </tr>
@@ -87,6 +94,59 @@
         </table>
       </div>
     </main>
+
+    <!-- 评价对话框 -->
+    <div v-if="showEvaluationDialog" class="modal-overlay" @click="closeEvaluationDialog">
+      <div class="modal-content" @click.stop>
+        <div class="modal-header">
+          <h3>给学生评价</h3>
+          <button class="close-btn" @click="closeEvaluationDialog">×</button>
+        </div>
+        <div class="modal-body">
+          <div class="form-group">
+            <label>学生姓名：</label>
+            <span>{{ currentStudent?.name }}</span>
+          </div>
+          <div class="form-group">
+            <label for="score">分数（0-100）：</label>
+            <input 
+              type="number" 
+              id="score" 
+              v-model.number="evaluationForm.score" 
+              min="0" 
+              max="100"
+              placeholder="请输入分数"
+            />
+          </div>
+          <div class="form-group">
+            <label for="comment">评语：</label>
+            <textarea 
+              id="comment" 
+              v-model="evaluationForm.comment" 
+              rows="5"
+              placeholder="请输入评语..."
+            ></textarea>
+          </div>
+          <div class="form-group">
+            <label for="subject">科目：</label>
+            <select id="subject" v-model="evaluationForm.subject">
+              <option value="综合">综合</option>
+              <option value="数学">数学</option>
+              <option value="语文">语文</option>
+              <option value="英语">英语</option>
+              <option value="物理">物理</option>
+              <option value="化学">化学</option>
+            </select>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" @click="closeEvaluationDialog">取消</button>
+          <button class="btn btn-primary" @click="submitEvaluation" :disabled="isSubmitting">
+            {{ isSubmitting ? '提交中...' : '提交评价' }}
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -101,6 +161,16 @@ const searchQuery = ref('')
 // 从 localStorage 获取用户信息
 const userInfo = ref(null)
 const token = ref('')
+
+// 评价对话框相关
+const showEvaluationDialog = ref(false)
+const currentStudent = ref(null)
+const isSubmitting = ref(false)
+const evaluationForm = ref({
+  score: '',
+  comment: '',
+  subject: '综合'
+})
 
 onMounted(async () => {
   const userStr = localStorage.getItem('user')
@@ -198,6 +268,103 @@ const handleActivate = (student) => {
 
 const handleDetail = (student) => {
   alert(`查看 ${student.name} 的详细信息`)
+}
+
+// 打开评价对话框
+const openEvaluationDialog = async (student) => {
+  currentStudent.value = student
+  showEvaluationDialog.value = true
+  
+  // 尝试加载已有的评价
+  try {
+    const response = await fetch(`${API_BASE_URL}/teacher-evaluations/student/${student.studentId}/my-evaluation`, {
+      headers: {
+        'Authorization': `Bearer ${token.value}`
+      }
+    })
+    
+    if (response.ok) {
+      const data = await response.json()
+      if (data.data) {
+        evaluationForm.value.score = data.data.score
+        evaluationForm.value.comment = data.data.comment
+        evaluationForm.value.subject = data.data.subject || '综合'
+      } else {
+        // 重置表单
+        evaluationForm.value = {
+          score: '',
+          comment: '',
+          subject: '综合'
+        }
+      }
+    }
+  } catch (error) {
+    console.error('加载评价失败:', error)
+  }
+}
+
+// 关闭评价对话框
+const closeEvaluationDialog = () => {
+  showEvaluationDialog.value = false
+  currentStudent.value = null
+  evaluationForm.value = {
+    score: '',
+    comment: '',
+    subject: '综合'
+  }
+}
+
+// 提交评价
+const submitEvaluation = async () => {
+  // 修复：分数为0时也会被判断为falsy，需要明确检查是否为null或undefined
+  if (evaluationForm.value.score === null || evaluationForm.value.score === undefined || evaluationForm.value.score === '' || !evaluationForm.value.comment) {
+    alert('请填写分数和评语')
+    return
+  }
+  
+  if (evaluationForm.value.score < 0 || evaluationForm.value.score > 100) {
+    alert('分数必须在0-100之间')
+    return
+  }
+  
+  isSubmitting.value = true
+  
+  console.log('📤 提交评价数据:', {
+    studentId: currentStudent.value.studentId,
+    score: evaluationForm.value.score,
+    comment: evaluationForm.value.comment,
+    subject: evaluationForm.value.subject
+  })
+  
+  try {
+    const response = await fetch(`${API_BASE_URL}/teacher-evaluations`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token.value}`
+      },
+      body: JSON.stringify({
+        studentId: currentStudent.value.studentId,
+        score: evaluationForm.value.score,
+        comment: evaluationForm.value.comment,
+        subject: evaluationForm.value.subject
+      })
+    })
+    
+    const data = await response.json()
+    
+    if (response.ok && data.status === 'success') {
+      alert('评价保存成功！')
+      closeEvaluationDialog()
+    } else {
+      alert(data.message || '保存失败')
+    }
+  } catch (error) {
+    console.error('保存评价失败:', error)
+    alert('保存失败，请重试')
+  } finally {
+    isSubmitting.value = false
+  }
 }
 </script>
 
@@ -440,6 +607,121 @@ tr:hover {
 
 .btn-secondary:hover {
   background: #5a6268;
+}
+
+.btn-success {
+  background: #28a745;
+  color: white;
+}
+
+.btn-success:hover {
+  background: #218838;
+}
+
+/* 模态框样式 */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modal-content {
+  background: white;
+  border-radius: 12px;
+  width: 90%;
+  max-width: 600px;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+}
+
+.modal-header {
+  padding: 24px;
+  border-bottom: 1px solid #e0e0e0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.modal-header h3 {
+  margin: 0;
+  color: #2196F3;
+  font-size: 20px;
+}
+
+.close-btn {
+  background: none;
+  border: none;
+  font-size: 28px;
+  cursor: pointer;
+  color: #999;
+  line-height: 1;
+  padding: 0;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  transition: all 0.3s ease;
+}
+
+.close-btn:hover {
+  background: #f0f0f0;
+  color: #333;
+}
+
+.modal-body {
+  padding: 24px;
+}
+
+.form-group {
+  margin-bottom: 20px;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: 500;
+  color: #333;
+}
+
+.form-group input,
+.form-group textarea,
+.form-group select {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  font-size: 14px;
+  transition: border-color 0.3s ease;
+}
+
+.form-group input:focus,
+.form-group textarea:focus,
+.form-group select:focus {
+  outline: none;
+  border-color: #2196F3;
+}
+
+.form-group textarea {
+  resize: vertical;
+  font-family: inherit;
+}
+
+.modal-footer {
+  padding: 20px 24px;
+  border-top: 1px solid #e0e0e0;
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
 }
 
 @media (max-width: 768px) {

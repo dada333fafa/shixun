@@ -1,29 +1,57 @@
 <template>
   <div>
-    <div class="match-list">
-      <div v-if="matches.length === 0" class="no-matches">
+    <!-- 收到的请求 - 待处理 -->
+    <div class="match-section">
+      <h3 class="section-title">📬 收到的请求</h3>
+      <div v-if="pendingMatches.length === 0" class="no-matches">
         <p>暂无待确认的辅导匹配请求</p>
       </div>
       
-      <div v-for="match in matches" :key="match._id" class="match-item">
+      <div v-for="match in pendingMatches" :key="match._id" class="match-item">
         <div class="match-item-header">
-          <div class="match-item-title">辅导请求 - 学生（{{ match.status }}）</div>
-          <span class="match-item-status" :class="getStatusClass(match.status)">{{ getStatusText(match.status) }}</span>
+          <div class="match-item-title">
+            辅导请求 - {{ getStudentName(match) }} → {{ getTeacherName(match) }}
+          </div>
+          <span class="match-item-status" :class="getStatusClass(match)">{{ getStatusText(match) }}</span>
         </div>
+        
         <div class="match-item-details">
-          <p>📝 辅导科目：{{ match.teacher_id?.subject || '未知科目' }}</p>
-          <p>🎯 学习需求：{{ match.request_message || '暂无说明' }}</p>
-          <p>⏰ 申请时间：{{ match.created_at ? formatTime(match.created_at) : '未知' }}</p>
-          <p>👨‍👩‍👧‍👦 家长审批：{{ match.parent_approval ? '已确认' : '未确认' }}</p>
+          <p>👨‍🎓 学生：{{ getStudentName(match) }}</p>
+          <p>👨‍🏫 教师：{{ getTeacherName(match) }}</p>
+          <p>📝 辅导需求：{{ match.requestMessage || '暂无说明' }}</p>
+          <p>⏰ 申请时间：{{ match.createdAt ? formatTime(match.createdAt) : '未知' }}</p>
+          <p>👨‍‍👦 家长审批：{{ match.parentApproval ? '已同意' : '未确认' }}</p>
         </div>
-        <div class="match-item-actions" v-if="match.status === 'pending' && !match.parent_approval">
+        
+        <div class="match-item-actions" v-if="!match.parentApproval">
           <button class="btn btn-primary" @click="approveRequest(match._id)">同意</button>
           <button class="btn btn-secondary" @click="rejectRequest(match._id)">拒绝</button>
         </div>
-        <div class="match-item-actions" v-else>
-          <span class="status-text" :class="getStatusClass(match.status)">
-            {{ match.parent_approval ? '已确认' : '状态：' + getStatusText(match.status) }}
-          </span>
+      </div>
+    </div>
+
+    <!-- 已操作的请求 - 已处理 -->
+    <div class="match-section">
+      <h3 class="section-title">✅ 已操作的请求</h3>
+      <div v-if="processedMatches.length === 0" class="no-matches">
+        <p>暂无已处理的请求</p>
+      </div>
+      
+      <div v-for="match in processedMatches" :key="match._id" class="match-item processed">
+        <div class="match-item-header">
+          <div class="match-item-title">
+            辅导请求 - {{ getStudentName(match) }} → {{ getTeacherName(match) }}
+          </div>
+          <span class="match-item-status" :class="getStatusClass(match)">{{ getStatusText(match) }}</span>
+        </div>
+        
+        <div class="match-item-details">
+          <p>👨‍🎓 学生：{{ getStudentName(match) }}</p>
+          <p>👨‍🏫 教师：{{ getTeacherName(match) }}</p>
+          <p>📝 辅导需求：{{ match.requestMessage || '暂无说明' }}</p>
+          <p>⏰ 申请时间：{{ match.createdAt ? formatTime(match.createdAt) : '未知' }}</p>
+          <p v-if="match.matchedAt">✅ 确认时间：{{ formatTime(match.matchedAt) }}</p>
+          <p>👨‍👩‍👦 家长审批：{{ match.parentApproval ? '已同意' : '已拒绝' }}</p>
         </div>
       </div>
     </div>
@@ -31,13 +59,15 @@
 </template>
 
 <script>
-import { get, post } from '../api/config.js'
+import { get, put } from '../api/config.js'
 
 export default {
   name: 'ParentMatchConfirmation',
   data() {
     return {
-      matches: []
+      matches: [],
+      pendingMatches: [],    // 待处理的请求
+      processedMatches: []   // 已处理的请求
     }
   },
   computed: {
@@ -45,7 +75,7 @@ export default {
       const userStr = localStorage.getItem('user')
       if (userStr) {
         const user = JSON.parse(userStr)
-        return user._id
+        return user.id || user._id
       }
       return null
     }
@@ -63,11 +93,18 @@ export default {
       
       try {
         console.log('获取匹配请求，家长ID:', this.parentId)
-        const response = await get(`/match-confirmation/${this.parentId}`)
+        const response = await get('/matches/parent/pending')
         console.log('匹配请求响应:', response)
         if (response.success) {
           this.matches = response.matches
           console.log('匹配请求数据:', this.matches)
+          
+          // 分类：待处理和已处理
+          this.pendingMatches = this.matches.filter(match => !match.parentApproval && match.status !== 'rejected')
+          this.processedMatches = this.matches.filter(match => match.parentApproval || match.status === 'rejected')
+          
+          console.log('待处理请求:', this.pendingMatches.length)
+          console.log('已处理请求:', this.processedMatches.length)
         } else {
           console.error('获取匹配请求失败:', response.message)
           alert('获取匹配请求失败: ' + response.message)
@@ -86,19 +123,18 @@ export default {
       
       if (confirm('确定要同意这个辅导请求吗？')) {
         try {
-          const response = await post('/match/approve', {
-            matchId,
-            parentId: this.parentId
-          })
+          console.log('家长同意请求, matchId:', matchId)
+          const response = await put(`/matches/${matchId}/parent-approve`, {})
+          console.log('同意响应:', response)
           if (response.success) {
-            alert('已同意辅导请求')
+            alert(response.message || '已同意辅导请求')
             this.fetchMatches()
           } else {
             alert('操作失败：' + response.message)
           }
         } catch (error) {
           console.error('同意请求失败:', error)
-          alert('操作失败')
+          alert('操作失败: ' + error.message)
         }
       }
     },
@@ -111,31 +147,41 @@ export default {
       
       if (confirm('确定要拒绝这个辅导请求吗？')) {
         try {
-          const response = await post('/match/reject', {
-            matchId,
-            parentId: this.parentId
-          })
+          console.log('家长拒绝请求, matchId:', matchId)
+          const response = await put(`/matches/${matchId}/parent-reject`, {})
+          console.log('拒绝响应:', response)
           if (response.success) {
-            alert('已拒绝辅导请求')
+            alert(response.message || '已拒绝辅导请求')
             this.fetchMatches()
           } else {
             alert('操作失败：' + response.message)
           }
         } catch (error) {
           console.error('拒绝请求失败:', error)
-          alert('操作失败')
+          alert('操作失败: ' + error.message)
         }
       }
     },
-    getStatusText(status) {
-      const statusMap = {
-        'pending': '待家长确认',
-        'approved': '已同意',
-        'rejected': '已拒绝',
-        'active': '进行中',
-        'completed': '已完成'
+    getStatusText(match) {
+      if (match.status === 'pending' && !match.parentApproval) {
+        return '待您和教师确认';
+      } else if (match.status === 'pending' && match.parentApproval) {
+        return '家长已同意，等待教师审批';
+      } else if (match.status === 'approved' && !match.parentApproval) {
+        return '教师已同意，待您确认';
+      } else if (match.status === 'approved' && match.parentApproval) {
+        return '已同意（待教师确认）';
+      } else if (match.status === 'active') {
+        return '已接收';  // 修改：双方都同意后显示“已接收”
+      } else if (match.status === 'rejected') {
+        if (match.parentApproval) {
+          return '家长已同意，但教师已拒绝';
+        }
+        return '已拒绝';
+      } else if (match.status === 'completed') {
+        return '已完成';
       }
-      return statusMap[status] || status
+      return match.status;
     },
     formatTime(dateString) {
       if (!dateString) return ''
@@ -148,21 +194,41 @@ export default {
         minute: '2-digit'
       })
     },
-    getStatusClass(status) {
-      const statusMap = {
-        'pending': 'status-pending',
-        'approved': 'status-approved',
-        'rejected': 'status-rejected',
-        'active': 'status-active',
-        'completed': 'status-completed'
-      }
-      return statusMap[status] || ''
-    }
+    getStatusClass(match) {
+      if (match.status === 'rejected') return 'status-rejected';
+      if (match.status === 'active') return 'status-active';
+      if (match.status === 'completed') return 'status-completed';
+      if (match.parentApproval && match.status === 'approved') return 'status-approved';
+      return 'status-pending';
+    },
+    getStudentName(match) {
+      if (!match.student) return '未知学生';
+      const user = match.student.user || match.student;
+      return user.name || '未知学生';
+    },
+    getTeacherName(match) {
+      if (!match.teacher) return '未知教师';
+      const user = match.teacher.user || match.teacher;
+      return user.name || '未知教师';
+    },
   }
 }
 </script>
 
 <style scoped>
+.match-section {
+  margin-bottom: 30px;
+}
+
+.section-title {
+  font-size: 1.3em;
+  font-weight: bold;
+  margin-bottom: 15px;
+  padding-bottom: 10px;
+  border-bottom: 2px solid #e0e0e0;
+  color: #333;
+}
+
 .match-list {
   background: white;
   padding: 25px;
@@ -178,12 +244,21 @@ export default {
 
 .match-item {
   padding: 20px;
-  border-bottom: 1px solid #e0e0e0;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  margin-bottom: 15px;
   transition: all 0.3s ease;
+  background: white;
 }
 
 .match-item:hover {
   background-color: #f9f9f9;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.match-item.processed {
+  background-color: #f5f5f5;
+  opacity: 0.9;
 }
 
 .match-item-header {

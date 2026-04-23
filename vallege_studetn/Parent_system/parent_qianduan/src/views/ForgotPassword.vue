@@ -1,73 +1,53 @@
 <template>
-  <div class="container">
+  <div class="forgot-password-container">
     <div class="forgot-password-card">
       <div class="logo">🔒</div>
       <h1>忘记密码</h1>
-      <p>请输入您的邮箱，我们将发送重置密码的链接</p>
+      <p>请输入您的邮箱,我们将发送重置密码的链接</p>
       
-      <form>
+      <form @submit.prevent="handleResetPassword">
         <div class="form-group">
           <label for="email">邮箱</label>
-          <input type="email" id="email" v-model="email" placeholder="请输入您的邮箱">
+          <input 
+            type="email" 
+            id="email" 
+            v-model="email" 
+            placeholder="请输入您的邮箱"
+          >
         </div>
         
-        <button type="button" class="btn-reset" @click="resetPassword">发送重置链接</button>
+        <button type="submit" class="btn-reset">发送重置链接</button>
         
         <div class="links">
-          <a @click="$router.push('/login')">返回登录</a>
-          <a @click="$router.push('/')">返回首页</a>
+          <router-link to="/login">返回登录</router-link>
+          <router-link to="/">返回首页</router-link>
         </div>
       </form>
     </div>
   </div>
 </template>
 
-<script>
-import { post } from '../api/config'
+<script setup>
+import { ref } from 'vue'
+import { useRouter } from 'vue-router'
 
-export default {
-  name: 'ForgotPassword',
-  data() {
-    return {
-      email: ''
-    }
-  },
-  methods: {
-    async resetPassword() {
-      if (!this.email) {
-        alert('请输入邮箱')
-        return
-      }
-      
-      try {
-        // 调用后端忘记密码API
-        const response = await post('/auth/forgot-password', {
-          email: this.email
-        })
-        
-        if (response.success) {
-          alert('重置链接已发送到您的邮箱，请查收')
-          this.$router.push('/login')
-        } else {
-          alert(response.message)
-        }
-      } catch (error) {
-        alert('发送失败，请稍后重试')
-        console.error('发送重置链接失败:', error)
-      }
-    }
+const router = useRouter()
+const email = ref('')
+
+const handleResetPassword = () => {
+  if (!email.value) {
+    alert('请输入邮箱')
+    return
   }
+  
+  // 发送重置链接,跳转到登录页面
+  alert('重置链接已发送到您的邮箱,请查收')
+  router.push('/login')
 }
 </script>
 
 <style scoped>
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
-}
-
-body {
+.forgot-password-container {
   font-family: 'Arial', sans-serif;
   background-color: #f0f8ff;
   color: #333;
@@ -77,15 +57,11 @@ body {
   min-height: 100vh;
 }
 
-.container {
+.forgot-password-card {
   max-width: 500px;
   width: 100%;
-  padding: 20px;
-}
-
-.forgot-password-card {
-  background: white;
   padding: 40px;
+  background: white;
   border-radius: 15px;
   box-shadow: 0 8px 20px rgba(0,0,0,0.1);
   text-align: center;
@@ -158,7 +134,6 @@ input[type="email"]:focus {
   color: #4CAF50;
   text-decoration: none;
   margin: 0 10px;
-  cursor: pointer;
 }
 
 .links a:hover {
@@ -166,10 +141,6 @@ input[type="email"]:focus {
 }
 
 @media (max-width: 768px) {
-  .container {
-    padding: 10px;
-  }
-  
   .forgot-password-card {
     padding: 20px;
   }

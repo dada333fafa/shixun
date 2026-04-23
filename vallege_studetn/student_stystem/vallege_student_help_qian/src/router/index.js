@@ -13,6 +13,7 @@ import StudentResources from '../views/student/Resources.vue'
 import StudentPsychological from '../views/student/Psychological.vue'
 import StudentAIRecommendation from '../views/student/AIRecommendation.vue'
 import StudentMatch from '../views/student/Match.vue'
+import StudentParentRequests from '../views/student/ParentRequests.vue'
 
 // 教师相关
 import TeacherDashboard from '../views/teacher/Dashboard.vue'
@@ -88,6 +89,11 @@ const routes = [
     path: '/student/match',
     name: 'StudentMatch',
     component: StudentMatch
+  },
+  {
+    path: '/student/parent-requests',
+    name: 'StudentParentRequests',
+    component: StudentParentRequests
   },
   // 教师路由
   {

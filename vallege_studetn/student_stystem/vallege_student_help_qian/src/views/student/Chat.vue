@@ -11,6 +11,7 @@
         <router-link to="/student/psychological">心理支持</router-link>
         <router-link to="/student/ai-recommendation">AI推荐</router-link>
         <router-link to="/student/match">匹配管理</router-link>
+        <router-link to="/student/parent-requests">家长请求</router-link>
         <a href="#" @click.prevent="handleLogout">退出登录</a>
       </nav>
     </aside>
@@ -139,9 +140,9 @@ async function loadConversations() {
       const matches = matchData.data || matchData || []
       console.log('📦 匹配数据:', matches.length, '条')
       
-      // 只添加已接受/活跃状态的老师
+      // 只添加已接受/活跃状态的老师（必须是active状态，表示家长和老师都同意了）
       matches.forEach(match => {
-        if ((match.status === 'active' || match.status === 'approved') && match.teacher) {
+        if (match.status === 'active' && match.teacher) {
           const teacherInfo = match.teacher.user || match.teacher || {}
           const teacherUserId = teacherInfo._id || match.teacher?._id
           
@@ -319,7 +320,11 @@ function handleLogout() {
 .sidebar h2 {
   margin-bottom: 30px;
   text-align: center;
-  font-size: 1.5em;
+  font-size: 1.6em;
+  font-weight: bold;
+  color: #ffffff;
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+  letter-spacing: 2px;
 }
 
 .nav-menu {

@@ -1,6 +1,7 @@
 const User = require('../models/User');
 const Teacher = require('../models/Teacher');
 const Student = require('../models/Student');
+const Parent = require('../models/Parent');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 
@@ -64,6 +65,13 @@ exports.register = async (req, res) => {
         address: ''
       });
       console.log('✅ 已为学生创建记录, User ID:', user._id);
+    } else if (role === 'parent') {
+      // 家长注册时自动创建Parent记录
+      await Parent.create({
+        user: user._id,
+        relation: req.body.relation || '其他'
+      });
+      console.log('✅ 已为家长创建记录, User ID:', user._id);
     }
 
     res.status(201).json({
@@ -135,6 +143,13 @@ exports.login = async (req, res) => {
         extraInfo = {
           grade: student.grade,
           school: student.school
+        };
+      }
+    } else if (role === 'parent') {
+      const parent = await Parent.findOne({ user: user._id });
+      if (parent) {
+        extraInfo = {
+          relation: parent.relation
         };
       }
     }

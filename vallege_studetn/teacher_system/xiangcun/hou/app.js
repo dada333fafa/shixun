@@ -18,10 +18,16 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// 调试日志 - 记录所有请求
+app.use((req, res, next) => {
+  console.log(`📥 请求: ${req.method} ${req.path}`);
+  next();
+});
+
 // 静态文件服务（用于上传的文件）
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
-// 路由配置 - 整合学生和教师端的路由
+// 路由配置 - 整合学生、教师和家长端的路由
 app.use('/api/v1/auth', require('./routes/authRoutes'));
 app.use('/api/v1/teachers', require('./routes/teacherRoutes'));
 app.use('/api/v1/students', require('./routes/studentRoutes'));
@@ -33,13 +39,20 @@ app.use('/api/v1/counselors', require('./routes/counselorRoutes'));
 app.use('/api/counselors', require('./routes/counselorRoutes'));
 app.use('/api/v1/psychological-schedules', require('./routes/psychologicalScheduleRoutes'));
 app.use('/api/v1/learning-progress', require('./routes/learningProgressRoutes'));
+app.use('/api/v1/teacher-evaluations', require('./routes/teacherEvaluations'));
 
-// 学生端特有路由 (兼容 /api 前缀)
+// 学生端特有路由 (兼容 /api 前缀) - 必须在家长端路由之前注册
 app.use('/api/ai', require('./routes/aiRoutes'));
 app.use('/api/psychological', require('./routes/psychologicalRoutes'));
-app.use('/api/matches', require('./routes/matchRoutes'));
+app.use('/api/matches', require('./routes/matchRoutes')); // 匹配路由（包含家长确认接口）
 app.use('/api/resources', require('./routes/teachingResources'));
 app.use('/api/users', require('./routes/authRoutes')); // 学生端注册登录
+
+// 家长端消息路由（兼容 /api/messages 前缀）
+app.use('/api/messages', require('./routes/messageRoutes'));
+
+// 家长端路由（所有家长接口统一挂载到 /api）- 必须放在最后
+app.use('/api', require('./routes/parentRoutes'));
 
 // 健康检查路由
 app.get('/api/health', (req, res) => {

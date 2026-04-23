@@ -3,7 +3,7 @@
     <div class="sidebar">
       <h2>家长中心</h2>
       <ul class="nav-menu">
-        <li><router-link to="/" :class="{ active: $route.path === '/' }">仪表盘</router-link></li>
+        <li><router-link to="/parent/dashboard" :class="{ active: $route.path === '/parent/dashboard' }">仪表盘</router-link></li>
         <li><router-link to="/child-management" :class="{ active: $route.path === '/child-management' }">孩子管理</router-link></li>
         <li><router-link to="/teacher-communication" :class="{ active: $route.path === '/teacher-communication' }">教师沟通</router-link></li>
         <li><router-link to="/learning-report" :class="{ active: $route.path === '/learning-report' }">学习报告</router-link></li>
@@ -17,8 +17,8 @@
       <div class="header">
         <h1>{{ title }}</h1>
         <div class="user-info">
-          <span>欢迎，王家长</span>
-          <div class="user-avatar">王</div>
+          <span>欢迎，{{ userName }}</span>
+          <div class="user-avatar">{{ userAvatar }}</div>
         </div>
       </div>
       
@@ -35,6 +35,20 @@ export default {
       type: String,
       required: true
     }
+  },
+  computed: {
+    userName() {
+      const userStr = localStorage.getItem('user')
+      if (userStr) {
+        const user = JSON.parse(userStr)
+        return user.name || '家长'
+      }
+      return '家长'
+    },
+    userAvatar() {
+      const name = this.userName
+      return name ? name.charAt(0) : '家'
+    }
   }
 }
 </script>
@@ -49,10 +63,12 @@ export default {
 .container {
   display: flex;
   min-height: 100vh;
+  width: 100%;
 }
 
 .sidebar {
   width: 250px;
+  min-width: 250px;
   background: linear-gradient(135deg, #FF9800, #F57C00);
   color: white;
   padding: 20px;
@@ -94,15 +110,17 @@ export default {
 
 .main-content {
   flex: 1;
-  padding: 20px;
+  padding: 30px;
+  width: 100%;
+  overflow-y: auto;
 }
 
 .header {
   background: white;
-  padding: 20px;
+  padding: 20px 30px;
   border-radius: 10px;
   box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-  margin-bottom: 20px;
+  margin-bottom: 30px;
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -138,6 +156,7 @@ export default {
   
   .sidebar {
     width: 100%;
+    min-width: 100%;
     padding: 10px;
   }
   

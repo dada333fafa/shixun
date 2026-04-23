@@ -128,7 +128,7 @@ exports.getDashboard = async (req, res) => {
       
       const matches = await TeacherStudentMatch.find({
         teacher: teacher._id,
-        status: { $in: ['active', 'approved', 'pending'] }
+        status: { $in: ['active'] }  // 只查询active状态的匹配
       })
       .populate({ 
         path: 'student', 

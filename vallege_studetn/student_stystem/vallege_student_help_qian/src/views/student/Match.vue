@@ -11,6 +11,7 @@
         <router-link to="/student/psychological">心理支持</router-link>
         <router-link to="/student/ai-recommendation">AI推荐</router-link>
         <router-link to="/student/match" class="active">匹配管理</router-link>
+        <router-link to="/student/parent-requests">家长请求</router-link>
         <a href="#" @click.prevent="handleLogout">退出登录</a>
       </nav>
     </aside>
@@ -113,7 +114,7 @@
                 取消请求
               </button>
               <button 
-                v-if="match.status === 'approved' || match.status === 'active'"
+                v-if="match.status === 'active'"  
                 class="btn btn-primary"
                 @click="goToChat(match)"
               >
@@ -223,7 +224,7 @@ function getStatusText(status) {
     'pending': '待确认',
     'approved': '已接受',
     'rejected': '已拒绝',
-    'active': '匹配中',
+    'active': '已接收',  // 修改：双方都同意后显示“已接收”
     'completed': '已完成'
   }
   return statusMap[status] || status
@@ -312,7 +313,11 @@ function handleLogout() {
 .sidebar h2 {
   margin-bottom: 30px;
   text-align: center;
-  font-size: 1.5em;
+  font-size: 1.6em;
+  font-weight: bold;
+  color: #ffffff;
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+  letter-spacing: 2px;
 }
 
 .nav-menu {

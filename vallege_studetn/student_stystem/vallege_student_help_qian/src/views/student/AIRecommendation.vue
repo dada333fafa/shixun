@@ -11,6 +11,7 @@
         <router-link to="/student/psychological">心理支持</router-link>
         <router-link to="/student/ai-recommendation" class="active">AI推荐</router-link>
         <router-link to="/student/match">匹配管理</router-link>
+        <router-link to="/student/parent-requests">家长请求</router-link>
         <a href="#" @click.prevent="handleLogout">退出登录</a>
       </nav>
     </aside>
@@ -258,7 +259,11 @@ function handleLogout() {
 .sidebar h2 {
   margin-bottom: 30px;
   text-align: center;
-  font-size: 1.5em;
+  font-size: 1.6em;
+  font-weight: bold;
+  color: #ffffff;
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+  letter-spacing: 2px;
 }
 
 .nav-menu {

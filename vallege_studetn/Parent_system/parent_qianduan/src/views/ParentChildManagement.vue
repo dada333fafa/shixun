@@ -1,94 +1,79 @@
 <template>
   <div>
-    <div class="add-child" v-if="!editingChild">
+    <!-- 添加孩子表单 -->
+    <div class="add-child">
       <h2>添加孩子</h2>
       <form @submit.prevent="addChild">
         <div class="form-group">
-          <label for="child-name">孩子姓名</label>
-          <input type="text" id="child-name" v-model="newChild.name" placeholder="请输入孩子姓名" required>
+          <label for="child-name">孩子姓名（必须是真实注册的学生）</label>
+          <input 
+            type="text" 
+            id="child-name" 
+            v-model="newChild.studentName" 
+            placeholder="请输入真实存在的学生姓名" 
+            required
+          >
         </div>
         <div class="form-group">
-          <label for="child-grade">年级</label>
-          <select id="child-grade" v-model="newChild.grade" required>
-            <option value="一年级">一年级</option>
-            <option value="二年级">二年级</option>
-            <option value="三年级">三年级</option>
-            <option value="四年级">四年级</option>
-            <option value="五年级">五年级</option>
-            <option value="六年级">六年级</option>
-          </select>
+          <label for="child-message">请求消息（可选）</label>
+          <textarea 
+            id="child-message" 
+            v-model="newChild.message" 
+            placeholder="请输入请求消息，例如：我是你的家长，请接受我的请求"
+            rows="3"
+          ></textarea>
         </div>
-        <div class="form-group">
-          <label for="child-subject">需要辅导的科目</label>
-          <select id="child-subject" v-model="newChild.subject" required>
-            <option value="数学">数学</option>
-            <option value="语文">语文</option>
-            <option value="英语">英语</option>
-            <option value="物理">物理</option>
-            <option value="化学">化学</option>
-          </select>
-        </div>
-        <button type="submit" class="btn btn-primary">添加孩子</button>
+        <button type="submit" class="btn btn-primary">发送添加请求</button>
       </form>
     </div>
     
-    <div class="edit-child" v-else>
-      <h2>编辑孩子信息</h2>
-      <form @submit.prevent="saveEdit">
-        <div class="form-group">
-          <label for="edit-name">孩子姓名</label>
-          <input type="text" id="edit-name" v-model="editForm.name" placeholder="请输入孩子姓名" required>
-        </div>
-        <div class="form-group">
-          <label for="edit-grade">年级</label>
-          <select id="edit-grade" v-model="editForm.grade" required>
-            <option value="一年级">一年级</option>
-            <option value="二年级">二年级</option>
-            <option value="三年级">三年级</option>
-            <option value="四年级">四年级</option>
-            <option value="五年级">五年级</option>
-            <option value="六年级">六年级</option>
-          </select>
-        </div>
-        <div class="form-group">
-          <label for="edit-school">学校</label>
-          <input type="text" id="edit-school" v-model="editForm.school" placeholder="请输入学校名称">
-        </div>
-        <div class="form-group">
-          <label for="edit-address">地址</label>
-          <input type="text" id="edit-address" v-model="editForm.address" placeholder="请输入家庭地址">
-        </div>
-        <div class="form-actions">
-          <button type="submit" class="btn btn-primary">保存</button>
-          <button type="button" class="btn btn-secondary" @click="cancelEdit">取消</button>
-        </div>
-      </form>
-    </div>
-    
-    <div class="child-list">
+    <!-- 待处理请求列表 -->
+    <div class="pending-requests" v-if="pendingRequests.length > 0">
+      <h2>待处理的请求</h2>
       <table>
+        <thead>
+          <tr>
+            <th>学生姓名</th>
+            <th>请求消息</th>
+            <th>发送时间</th>
+            <th>状态</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="request in pendingRequests" :key="request._id">
+            <td>{{ request.student?.user?.name || '未知' }}</td>
+            <td>{{ request.message || '无' }}</td>
+            <td>{{ formatDate(request.createdAt) }}</td>
+            <td><span class="status-badge status-pending">等待学生确认</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    
+    <!-- 已添加的孩子列表 -->
+    <div class="child-list">
+      <h2>我的孩子</h2>
+      <table v-if="children.length > 0">
         <thead>
           <tr>
             <th>孩子姓名</th>
             <th>年级</th>
             <th>学校</th>
             <th>状态</th>
-            <th>操作</th>
           </tr>
         </thead>
         <tbody>
           <tr v-for="child in children" :key="child._id">
             <td>{{ child.user_id?.name || '未知' }}</td>
-            <td>{{ child.grade || '未知' }}</td>
+            <td>{{ child.grade || '未填写' }}</td>
             <td>{{ child.school || '未填写' }}</td>
-            <td><span class="status-badge status-active">活跃</span></td>
-            <td>
-              <button class="btn btn-primary" @click="editChild(child)">编辑</button>
-              <button class="btn btn-primary" @click="deleteChild(child._id)">删除</button>
-            </td>
+            <td><span class="status-badge status-active">已添加</span></td>
           </tr>
         </tbody>
       </table>
+      <div v-else class="no-data">
+        <p>暂无已添加的孩子</p>
+      </div>
     </div>
   </div>
 </template>
@@ -101,17 +86,10 @@ export default {
   data() {
     return {
       children: [],
+      pendingRequests: [],
       newChild: {
-        name: '',
-        grade: '一年级',
-        subject: '数学'
-      },
-      editingChild: null,
-      editForm: {
-        name: '',
-        grade: '一年级',
-        school: '',
-        address: ''
+        studentName: '',
+        message: ''
       }
     }
   },
@@ -120,13 +98,14 @@ export default {
       const userStr = localStorage.getItem('user')
       if (userStr) {
         const user = JSON.parse(userStr)
-        return user._id
+        return user.id || user._id
       }
       return null
     }
   },
   mounted() {
     this.fetchChildren()
+    this.fetchPendingRequests()
   },
   methods: {
     async fetchChildren() {
@@ -145,6 +124,20 @@ export default {
         console.error('获取孩子列表失败:', error)
       }
     },
+    async fetchPendingRequests() {
+      if (!this.parentId) {
+        return
+      }
+      
+      try {
+        const response = await get(`/parents/children/pending/${this.parentId}`)
+        if (response.success) {
+          this.pendingRequests = response.requests
+        }
+      } catch (error) {
+        console.error('获取待处理请求失败:', error)
+      }
+    },
     async addChild() {
       if (!this.parentId) {
         console.error('家长ID不存在，请重新登录')
@@ -152,109 +145,49 @@ export default {
         return
       }
       
-      try {
-        const response = await post('/children/add', {
-          parentId: this.parentId,
-          ...this.newChild
-        })
-        if (response.success) {
-          alert('添加孩子成功！')
-          this.fetchChildren()
-          this.newChild = { name: '', grade: '一年级', subject: '数学' }
-        } else {
-          alert('添加孩子失败：' + response.message)
-        }
-      } catch (error) {
-        console.error('添加孩子失败:', error)
-        alert('添加孩子失败')
-      }
-    },
-    editChild(child) {
-      this.editingChild = child
-      this.editForm = {
-        name: child.user_id?.name || '',
-        grade: child.grade || '一年级',
-        school: child.school || '',
-        address: child.address || ''
-      }
-    },
-    async saveEdit() {
-      if (!this.parentId || !this.editingChild) {
-        console.error('家长ID或孩子信息不存在')
-        alert('家长ID或孩子信息不存在')
+      if (!this.newChild.studentName.trim()) {
+        alert('请输入学生姓名')
         return
       }
       
       try {
-        console.log('编辑孩子信息:', this.editForm)
-        console.log('用户ID:', this.editingChild.user_id._id)
-        console.log('学生ID:', this.editingChild._id)
-        
-        // 先更新用户信息
-        const userResponse = await post('/users/update', {
-          userId: this.editingChild.user_id._id.toString(),
-          name: this.editForm.name
+        const response = await post('/parents/children/add', {
+          parentId: this.parentId,
+          studentName: this.newChild.studentName.trim(),
+          message: this.newChild.message
         })
         
-        console.log('更新用户响应:', userResponse)
-        
-        if (userResponse.success) {
-          // 再更新学生信息
-          const studentResponse = await post('/students/update', {
-            studentId: this.editingChild._id.toString(),
-            grade: this.editForm.grade,
-            school: this.editForm.school,
-            address: this.editForm.address
-          })
-          
-          console.log('更新学生响应:', studentResponse)
-          
-          if (studentResponse.success) {
-            alert('编辑成功！')
-            this.fetchChildren()
-            this.cancelEdit()
-          } else {
-            alert('编辑失败：' + studentResponse.message)
-          }
+        if (response.success) {
+          alert('请求已发送，等待学生确认！')
+          this.fetchPendingRequests()
+          this.newChild = { studentName: '', message: '' }
         } else {
-          alert('编辑失败：' + userResponse.message)
+          alert('发送请求失败：' + response.message)
         }
       } catch (error) {
-        console.error('编辑孩子失败:', error)
-        alert('编辑失败: ' + error.message)
+        console.error('发送请求失败:', error)
+        alert('发送请求失败: ' + error.message)
       }
     },
-    cancelEdit() {
-      this.editingChild = null
-      this.editForm = {
-        name: '',
-        grade: '一年级',
-        school: '',
-        address: ''
-      }
-    },
-    async deleteChild(childId) {
-      if (confirm('确定要删除这个孩子吗？')) {
-        try {
-          const response = await post('/children/delete', { childId })
-          if (response.success) {
-            alert('删除成功！')
-            this.fetchChildren()
-          } else {
-            alert('删除失败：' + response.message)
-          }
-        } catch (error) {
-          console.error('删除孩子失败:', error)
-          alert('删除失败')
-        }
-      }
+    formatDate(dateString) {
+      if (!dateString) return ''
+      const date = new Date(dateString)
+      return date.toLocaleString('zh-CN', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit'
+      })
     }
   }
 }
 </script>
 
 <style scoped>
-.add-child {
+.add-child,
+.pending-requests,
+.child-list {
   background: white;
   padding: 20px;
   border-radius: 10px;
@@ -262,7 +195,9 @@ export default {
   margin-bottom: 30px;
 }
 
-.add-child h2 {
+.add-child h2,
+.pending-requests h2,
+.child-list h2 {
   color: #FF9800;
   margin-bottom: 20px;
   font-size: 1.5em;
@@ -280,6 +215,7 @@ export default {
 }
 
 .form-group input,
+.form-group textarea,
 .form-group select {
   width: 100%;
   padding: 12px;
@@ -287,9 +223,11 @@ export default {
   border-radius: 8px;
   font-size: 1em;
   transition: all 0.3s ease;
+  font-family: inherit;
 }
 
 .form-group input:focus,
+.form-group textarea:focus,
 .form-group select:focus {
   outline: none;
   border-color: #FF9800;
@@ -316,16 +254,10 @@ export default {
   transform: translateY(-2px);
 }
 
-.child-list {
-  background: white;
-  border-radius: 10px;
-  box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-  overflow: hidden;
-}
-
 table {
   width: 100%;
   border-collapse: collapse;
+  margin-top: 15px;
 }
 
 th, td {
@@ -356,9 +288,20 @@ tr:hover {
   color: #155724;
 }
 
-.status-inactive {
+.status-pending {
+  background: #fff3cd;
+  color: #856404;
+}
+
+.status-rejected {
   background: #f8d7da;
   color: #721c24;
+}
+
+.no-data {
+  text-align: center;
+  padding: 40px;
+  color: #999;
 }
 
 @media (max-width: 768px) {

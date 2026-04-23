@@ -7,6 +7,7 @@ import ForgotPassword from '../views/ForgotPassword.vue'
 import ParentDashboard from '../views/ParentDashboard.vue'
 import ParentChildManagement from '../views/ParentChildManagement.vue'
 import ParentTeacherCommunication from '../views/ParentTeacherCommunication.vue'
+import ParentTeacherChat from '../views/ParentTeacherChat.vue'
 import ParentLearningReport from '../views/ParentLearningReport.vue'
 import ParentPsychologicalStatus from '../views/ParentPsychologicalStatus.vue'
 import ParentMatchConfirmation from '../views/ParentMatchConfirmation.vue'
@@ -38,7 +39,7 @@ const routes = [
     component: ForgotPassword
   },
   {
-    path: '/parent-dashboard',
+    path: '/parent/dashboard',
     name: 'ParentDashboard',
     component: ParentDashboard
   },
@@ -51,6 +52,11 @@ const routes = [
     path: '/teacher-communication',
     name: 'ParentTeacherCommunication',
     component: ParentTeacherCommunication
+  },
+  {
+    path: '/teacher-chat',
+    name: 'ParentTeacherChat',
+    component: ParentTeacherChat
   },
   {
     path: '/learning-report',

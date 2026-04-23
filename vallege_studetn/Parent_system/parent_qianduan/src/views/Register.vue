@@ -1,145 +1,181 @@
 <template>
-  <div class="container">
+  <div class="register-container">
     <div class="register-card">
       <div class="logo">🎓</div>
       <h1>注册乡村助学平台</h1>
       
-      <form>
+      <form @submit.prevent="handleRegister">
+        <div v-if="errorMessage" class="error-message">
+          {{ errorMessage }}
+        </div>
+        
         <div class="form-group">
           <label for="username">用户名</label>
-          <input type="text" id="username" v-model="form.username" placeholder="请输入用户名">
+          <input 
+            type="text" 
+            id="username" 
+            v-model="form.username" 
+            placeholder="请输入用户名"
+          >
         </div>
         
         <div class="form-group">
           <label for="password">密码</label>
-          <input type="password" id="password" v-model="form.password" placeholder="请输入密码">
+          <input 
+            type="password" 
+            id="password" 
+            v-model="form.password" 
+            placeholder="请输入密码"
+          >
         </div>
         
         <div class="form-group">
-          <label for="confirm-password">确认密码</label>
-          <input type="password" id="confirm-password" v-model="form.confirmPassword" placeholder="请确认密码">
+          <label for="confirmPassword">确认密码</label>
+          <input 
+            type="password" 
+            id="confirmPassword" 
+            v-model="form.confirmPassword" 
+            placeholder="请确认密码"
+          >
         </div>
         
         <div class="form-group">
           <label for="name">真实姓名</label>
-          <input type="text" id="name" v-model="form.name" placeholder="请输入真实姓名">
+          <input 
+            type="text" 
+            id="name" 
+            v-model="form.name" 
+            placeholder="请输入真实姓名"
+          >
         </div>
         
         <div class="form-group">
           <label for="email">邮箱</label>
-          <input type="email" id="email" v-model="form.email" placeholder="请输入邮箱">
+          <input 
+            type="email" 
+            id="email" 
+            v-model="form.email" 
+            placeholder="请输入邮箱"
+          >
         </div>
         
         <div class="form-group">
           <label for="phone">电话</label>
-          <input type="tel" id="phone" v-model="form.phone" placeholder="请输入电话">
+          <input 
+            type="tel" 
+            id="phone" 
+            v-model="form.phone" 
+            placeholder="请输入电话"
+          >
         </div>
         
         <div class="role-selection">
           <label>选择角色</label>
           <div class="role-options">
-            <div class="role-option" :class="{ selected: form.role === 'teacher' }" @click="selectRole('teacher')">
-              <i>👩‍🏫</i>
-              <span>教育教师</span>
-            </div>
-            <div class="role-option" :class="{ selected: form.role === 'student' }" @click="selectRole('student')">
-              <i>👨‍🎓</i>
-              <span>儿童/学生</span>
-            </div>
-            <div class="role-option" :class="{ selected: form.role === 'parent' }" @click="selectRole('parent')">
-              <i>👨‍👩‍👧‍👦</i>
-              <span>家长/监护人</span>
-            </div>
-            <div class="role-option" :class="{ selected: form.role === 'admin' }" @click="selectRole('admin')">
-              <i>🔧</i>
-              <span>管理员</span>
+            <div 
+              v-for="role in roles" 
+              :key="role.value"
+              class="role-option"
+              :class="{ selected: selectedRole === role.value }"
+              @click="selectRole(role.value)"
+            >
+              <i>{{ role.icon }}</i>
+              <span>{{ role.label }}</span>
             </div>
           </div>
         </div>
         
-        <button type="button" class="btn-register" @click="register">注册</button>
+        <button type="submit" class="btn-register" :disabled="loading">
+          {{ loading ? '注册中...' : '注册' }}
+        </button>
         
         <div class="links">
-          <a @click="$router.push('/login')">已有账号？立即登录</a>
-          <a @click="$router.push('/')">返回首页</a>
+          <router-link to="/login">已有账号?立即登录</router-link>
+          <router-link to="/">返回首页</router-link>
         </div>
       </form>
     </div>
   </div>
 </template>
 
-<script>
-import { post } from '../api/config'
+<script setup>
+import { ref, reactive } from 'vue'
+import { useRouter } from 'vue-router'
+import { authAPI } from '../api/index'
 
-export default {
-  name: 'Register',
-  data() {
-    return {
-      form: {
-        username: '',
-        password: '',
-        confirmPassword: '',
-        name: '',
-        email: '',
-        phone: '',
-        role: null
-      }
+const router = useRouter()
+
+const form = reactive({
+  username: '',
+  password: '',
+  confirmPassword: '',
+  name: '',
+  email: '',
+  phone: ''
+})
+
+const selectedRole = ref(null)
+const loading = ref(false)
+const errorMessage = ref('')
+
+const roles = [
+  { value: 'teacher', icon: '👩‍🏫', label: '教育教师' },
+  { value: 'student', icon: '👨‍🎓', label: '儿童/学生' },
+  { value: 'parent', icon: '👨‍👩‍👧‍👦', label: '家长/监护人' },
+  { value: 'admin', icon: '🔧', label: '管理员' }
+]
+
+const selectRole = (role) => {
+  selectedRole.value = role
+}
+
+const handleRegister = async () => {
+  errorMessage.value = ''
+  
+  if (!form.username || !form.password || !form.confirmPassword || 
+      !form.name || !form.email || !form.phone) {
+    errorMessage.value = '请填写所有必填字段'
+    return
+  }
+  
+  if (form.password !== form.confirmPassword) {
+    errorMessage.value = '两次输入的密码不一致'
+    return
+  }
+  
+  if (!selectedRole.value) {
+    errorMessage.value = '请选择角色'
+    return
+  }
+  
+  try {
+    loading.value = true
+    const result = await authAPI.register({
+      username: form.username,
+      password: form.password,
+      role: selectedRole.value,
+      name: form.name,
+      email: form.email,
+      phone: form.phone
+    })
+    
+    if (result.status === 'success') {
+      alert('注册成功!请登录')
+      router.push('/login')
+    } else {
+      errorMessage.value = result.message || '注册失败'
     }
-  },
-  methods: {
-    selectRole(role) {
-      this.form.role = role
-    },
-    async register() {
-      if (!this.form.username || !this.form.password || !this.form.confirmPassword || !this.form.name || !this.form.email || !this.form.phone) {
-        alert('请填写所有必填字段')
-        return
-      }
-      
-      if (this.form.password !== this.form.confirmPassword) {
-        alert('两次输入的密码不一致')
-        return
-      }
-      
-      if (!this.form.role) {
-        alert('请选择角色')
-        return
-      }
-      
-      try {
-        // 调用后端注册API
-        const response = await post('/auth/register', {
-          username: this.form.username,
-          password: this.form.password,
-          name: this.form.name,
-          email: this.form.email,
-          phone: this.form.phone,
-          role: this.form.role
-        })
-        
-        if (response.success) {
-          alert('注册成功！请登录')
-          this.$router.push('/login')
-        } else {
-          alert(response.message)
-        }
-      } catch (error) {
-        alert('注册失败，请稍后重试')
-        console.error('注册失败:', error)
-      }
-    }
+  } catch (error) {
+    errorMessage.value = error.message || '注册失败，请稍后重试'
+    console.error('注册错误:', error)
+  } finally {
+    loading.value = false
   }
 }
 </script>
 
 <style scoped>
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
-}
-
-body {
+.register-container {
   font-family: 'Arial', sans-serif;
   background-color: #f0f8ff;
   color: #333;
@@ -149,15 +185,11 @@ body {
   min-height: 100vh;
 }
 
-.container {
+.register-card {
   max-width: 500px;
   width: 100%;
-  padding: 20px;
-}
-
-.register-card {
-  background: white;
   padding: 40px;
+  background: white;
   border-radius: 15px;
   box-shadow: 0 8px 20px rgba(0,0,0,0.1);
   text-align: center;
@@ -272,18 +304,27 @@ input[type="tel"]:focus {
   color: #4CAF50;
   text-decoration: none;
   margin: 0 10px;
-  cursor: pointer;
 }
 
 .links a:hover {
   text-decoration: underline;
 }
 
+.btn-register:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.error-message {
+  background-color: #ffebee;
+  color: #c62828;
+  padding: 12px;
+  border-radius: 8px;
+  margin-bottom: 20px;
+  border: 1px solid #ef9a9a;
+}
+
 @media (max-width: 768px) {
-  .container {
-    padding: 10px;
-  }
-  
   .register-card {
     padding: 20px;
   }

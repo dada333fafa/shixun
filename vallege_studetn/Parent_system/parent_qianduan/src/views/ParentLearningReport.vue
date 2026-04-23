@@ -54,6 +54,29 @@
         <h3>学习建议</h3>
         <p>{{ learningAdvice }}</p>
       </div>
+      
+      <!-- 教师评价部分 -->
+      <div class="teacher-evaluations">
+        <h3>教师评价 ({{ teacherEvaluations.length }}条)</h3>
+        <div v-if="teacherEvaluations.length === 0" class="no-evaluations">
+          <p>暂无教师评价</p>
+        </div>
+        <div v-for="evaluation in teacherEvaluations" :key="evaluation._id" class="evaluation-card">
+          <div class="evaluation-header">
+            <div class="teacher-info">
+              <span class="teacher-name">{{ evaluation.teacher?.name || '未知教师' }}</span>
+              <span class="evaluation-subject">{{ evaluation.subject || '综合' }}</span>
+            </div>
+            <div class="evaluation-score">{{ evaluation.score }}分</div>
+          </div>
+          <div class="evaluation-comment">
+            <p>{{ evaluation.comment }}</p>
+          </div>
+          <div class="evaluation-date">
+            {{ formatDate(evaluation.evaluationDate) }}
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 </template>
@@ -68,6 +91,7 @@ export default {
       children: [],
       selectedChild: null,
       learningProgress: [],
+      teacherEvaluations: [],
       parentId: '',
       currentMonth: new Date().toLocaleDateString('zh-CN', { year: 'numeric', month: 'long' })
     }
@@ -77,18 +101,20 @@ export default {
     const userStr = localStorage.getItem('user')
     if (userStr) {
       const user = JSON.parse(userStr)
-      this.parentId = user._id
+      this.parentId = user.id || user._id
     }
     this.fetchChildren()
   },
   computed: {
     averageScore() {
-      if (this.learningProgress.length === 0) return 0
-      const total = this.learningProgress.reduce((sum, item) => sum + item.progress, 0)
-      return Math.round(total / this.learningProgress.length)
+      // 使用教师评价的分数计算平均值
+      if (this.teacherEvaluations.length === 0) return '0.0'
+      const total = this.teacherEvaluations.reduce((sum, item) => sum + (item.score || 0), 0)
+      const avg = total / this.teacherEvaluations.length
+      return avg.toFixed(1) // 保留一位小数
     },
     overallEvaluation() {
-      const avg = this.averageScore
+      const avg = parseFloat(this.averageScore)
       if (avg >= 90) return '优秀'
       if (avg >= 80) return '良好'
       if (avg >= 70) return '中等'
@@ -96,34 +122,8 @@ export default {
       return '需要努力'
     },
     learningAdvice() {
-      if (this.learningProgress.length === 0) {
-        return '暂无学习数据，请等待教师更新。'
-      }
-      
-      const weakSubjects = this.learningProgress
-        .filter(subject => subject.progress < 70)
-        .map(subject => subject.subject)
-      
-      const strongSubjects = this.learningProgress
-        .filter(subject => subject.progress >= 85)
-        .map(subject => subject.subject)
-      
-      let advice = ''
-      
-      if (weakSubjects.length > 0) {
-        advice += `在${weakSubjects.join('、')}方面需要加强学习，建议多花时间练习。`
-      }
-      
-      if (strongSubjects.length > 0) {
-        if (advice) advice += ' '
-        advice += `${strongSubjects.join('、')}表现优秀，请继续保持。`
-      }
-      
-      if (!advice) {
-        advice = '各科成绩均衡发展，请继续保持良好的学习状态。'
-      }
-      
-      return advice
+      // 固定的学习建议
+      return '孩子在学校表现积极，建议继续保持良好的学习习惯，多与同学交流学习经验，遇到问题及时向老师请教。家长可以多关注孩子的学习进度，给予适当的鼓励和支持。'
     }
   },
 
@@ -143,7 +143,10 @@ export default {
     },
     async selectChild(child) {
       this.selectedChild = child
+      this.teacherEvaluations = [] // 清空旧数据
       await this.fetchLearningProgress(child._id)
+      await this.fetchTeacherEvaluations(child._id)
+      console.log('✅ selectChild完成，teacherEvaluations:', this.teacherEvaluations)
     },
     async fetchLearningProgress(studentId) {
       try {
@@ -154,6 +157,30 @@ export default {
       } catch (error) {
         console.error('获取学习报告失败:', error)
       }
+    },
+    async fetchTeacherEvaluations(studentId) {
+      console.log('🔍 获取教师评价，studentId:', studentId)
+      try {
+        const response = await get(`/v1/teacher-evaluations/student/${studentId}`)
+        console.log('📊 教师评价响应:', response)
+        if (response.status === 'success') {
+          this.teacherEvaluations = response.data || []
+          console.log('✅ 评价数据:', this.teacherEvaluations)
+        }
+      } catch (error) {
+        console.error('获取教师评价失败:', error)
+      }
+    },
+    formatDate(dateString) {
+      if (!dateString) return ''
+      const date = new Date(dateString)
+      return date.toLocaleDateString('zh-CN', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      })
     }
   }
 }
@@ -306,6 +333,94 @@ export default {
 
 .teacher-comments p {
   line-height: 1.5;
+}
+
+/* 教师评价样式 */
+.teacher-evaluations {
+  margin-top: 30px;
+}
+
+.teacher-evaluations h3 {
+  margin-bottom: 20px;
+  color: #333;
+}
+
+.evaluation-card {
+  background: #f9f9f9;
+  padding: 20px;
+  border-radius: 10px;
+  margin-bottom: 15px;
+  border-left: 4px solid #FF9800;
+  transition: all 0.3s ease;
+}
+
+.evaluation-card:hover {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  transform: translateY(-2px);
+}
+
+.evaluation-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 15px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.teacher-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.teacher-name {
+  font-weight: bold;
+  color: #333;
+  font-size: 16px;
+}
+
+.evaluation-subject {
+  background: #FF9800;
+  color: white;
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 12px;
+}
+
+.evaluation-score {
+  font-size: 24px;
+  font-weight: bold;
+  color: #FF9800;
+}
+
+.evaluation-comment {
+  margin-bottom: 10px;
+}
+
+.evaluation-comment p {
+  line-height: 1.6;
+  color: #555;
+  margin: 0;
+}
+
+.evaluation-date {
+  font-size: 12px;
+  color: #999;
+  text-align: right;
+}
+
+.no-evaluations {
+  margin-top: 30px;
+  padding: 40px;
+  text-align: center;
+  background: #f9f9f9;
+  border-radius: 10px;
+}
+
+.no-evaluations p {
+  color: #999;
+  font-size: 14px;
 }
 
 @media (max-width: 768px) {

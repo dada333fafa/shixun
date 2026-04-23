@@ -200,8 +200,8 @@ const filteredMatches = computed(() => {
     // 发送的邀请：教师发起的请求
     return matches.value.filter(m => m.title.includes('教师发起'))
   } else if (activeTab.value === 'matched') {
-    // 已匹配：状态为approved或active
-    return matches.value.filter(m => m.status === 'approved' || m.status === 'active')
+    // 已匹配：只有状态为active的匹配（家长和老师都同意）
+    return matches.value.filter(m => m.status === 'active')
   }
   return matches.value
 })
@@ -215,7 +215,7 @@ const getStatusText = (status) => {
     'pending': '待确认',
     'approved': '已接受',
     'rejected': '已拒绝',
-    'active': '匹配中',
+    'active': '已接收',  // 修改：双方都同意后显示“已接收”
     'completed': '已完成'
   }
   return statusMap[status] || status
