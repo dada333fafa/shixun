@@ -575,4 +575,84 @@ router.put('/:id/parent-reject', protect, async (req, res) => {
   }
 });
 
+// @route   POST api/matches/request-from-teacher
+// @desc    教师发送辅导邀请
+// @access  Private (教师)
+router.post('/request-from-teacher', protect, async (req, res) => {
+  try {
+    const { studentId, message } = req.body;
+
+    console.log('\n========== 🎯 教师发送辅导邀请 ==========');
+    console.log('当前教师 User ID:', req.user.id);
+    console.log('📥 接收到的 studentId:', studentId);
+    console.log('📝 邀请消息:', message);
+
+    // 获取当前教师信息
+    const teacher = await Teacher.findOne({ user: req.user.id });
+    console.log('🔍 查找到的 Teacher 文档:', teacher ? teacher._id : '未找到');
+    
+    if (!teacher) {
+      console.error('❌ 当前用户不是教师');
+      return res.status(400).json({ msg: '当前用户不是教师' });
+    }
+
+    // 验证学生是否存在
+    let studentUserId;
+    try {
+      studentUserId = new mongoose.Types.ObjectId(studentId);
+      console.log('✅ studentId 转换为 ObjectId 成功:', studentUserId);
+    } catch (err) {
+      console.error('❌ studentId 格式错误:', err);
+      return res.status(400).json({ msg: '学生ID格式错误' });
+    }
+    
+    const student = await Student.findOne({ user: studentUserId });
+    console.log('🔍 查找到的 Student 文档:', student ? student._id : '未找到');
+    
+    if (!student) {
+      console.error('❌ 学生不存在，studentUserId:', studentUserId);
+      return res.status(404).json({ msg: '学生不存在' });
+    }
+
+    // 检查是否已经发送过邀请
+    const existingMatch = await TeacherStudentMatch.findOne({
+      teacher: teacher._id,
+      student: student._id,
+      status: { $in: ['pending', 'approved', 'active'] }
+    });
+
+    if (existingMatch) {
+      console.log('⚠️ 已经发送过邀请或已经匹配');
+      return res.status(400).json({ msg: '已经发送过邀请或已经匹配' });
+    }
+
+    // 创建新的匹配请求
+    const newMatch = new TeacherStudentMatch({
+      teacher: teacher._id,
+      student: student._id,
+      requestFrom: 'teacher',
+      requestMessage: message || '',
+      status: 'pending',
+      parentApproval: false
+    });
+
+    console.log('💾 准备保存匹配请求...');
+    const match = await newMatch.save();
+    console.log('✅ 匹配请求保存成功, _id:', match._id);
+    
+    await match.populate({ path: 'teacher', populate: { path: 'user', select: 'name email' } });
+    await match.populate({ path: 'student', populate: { path: 'user', select: 'name email' } });
+
+    console.log('========== 🎯 请求处理完成 ==========\n');
+
+    res.json({
+      msg: '辅导邀请已发送',
+      match
+    });
+  } catch (err) {
+    console.error('❌ 发送辅导邀请错误:', err);
+    res.status(500).json({ msg: '服务器错误: ' + err.message });
+  }
+});
+
 module.exports = router;

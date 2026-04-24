@@ -10,6 +10,10 @@ export default defineConfig({
       '/api/v1': {
         target: 'http://localhost:3000',
         changeOrigin: true
+      },
+      '/api/matches': {
+        target: 'http://localhost:3000',
+        changeOrigin: true
       }
     }
   }

@@ -16,28 +16,28 @@
           <div class="card-icon">👨‍🏫</div>
           <h3>教师数量</h3>
           <div class="card-value">{{ stats.teachers }}</div>
-          <p>本周新增 {{ stats.newTeachers }} 名</p>
+          <p>总计 {{ stats.teachers }} 名</p>
         </div>
         
         <div class="card">
           <div class="card-icon">👨‍🎓</div>
           <h3>学生数量</h3>
           <div class="card-value">{{ stats.students }}</div>
-          <p>本周新增 {{ stats.newStudents }} 名</p>
+          <p>总计 {{ stats.students }} 名</p>
         </div>
         
         <div class="card">
           <div class="card-icon">👨‍👩‍👧‍👦</div>
           <h3>家长数量</h3>
           <div class="card-value">{{ stats.parents }}</div>
-          <p>本周新增 {{ stats.newParents }} 名</p>
+          <p>总计 {{ stats.parents }} 名</p>
         </div>
         
         <div class="card">
-          <div class="card-icon">💬</div>
-          <h3>辅导会话</h3>
-          <div class="card-value">{{ stats.sessions }}</div>
-          <p>本周新增 {{ stats.newSessions }} 次</p>
+          <div class="card-icon">🔧</div>
+          <h3>管理员数量</h3>
+          <div class="card-value">{{ stats.admins }}</div>
+          <p>总计 {{ stats.admins }} 名</p>
         </div>
       </div>
     </div>
@@ -47,25 +47,33 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import Sidebar from '../components/Sidebar.vue'
+import { adminAPI } from '../api'
 
 const userName = ref('管理员')
 const userInitial = ref('管')
 const stats = ref({
-  teachers: 45,
-  newTeachers: 2,
-  students: 128,
-  newStudents: 5,
-  parents: 89,
-  newParents: 3,
-  sessions: 236,
-  newSessions: 15
+  teachers: 0,
+  students: 0,
+  parents: 0,
+  admins: 0,
+  total: 0
 })
 
-onMounted(() => {
+onMounted(async () => {
   const user = JSON.parse(localStorage.getItem('user') || '{}')
   if (user.name) {
     userName.value = user.name
     userInitial.value = user.name.charAt(0)
+  }
+  
+  // 获取系统统计信息
+  try {
+    const response = await adminAPI.getStats()
+    if (response.data.status === 'success') {
+      stats.value = response.data.data
+    }
+  } catch (error) {
+    console.error('获取统计信息失败:', error)
   }
 })
 </script>

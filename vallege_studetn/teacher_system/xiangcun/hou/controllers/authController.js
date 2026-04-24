@@ -72,6 +72,9 @@ exports.register = async (req, res) => {
         relation: req.body.relation || '其他'
       });
       console.log('✅ 已为家长创建记录, User ID:', user._id);
+    } else if (role === 'admin') {
+      // 管理员不需要额外的模型，只需在User表中标记角色即可
+      console.log('✅ 已为管理员创建记录, User ID:', user._id);
     }
 
     res.status(201).json({

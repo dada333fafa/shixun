@@ -87,4 +87,24 @@ const router = createRouter({
   routes
 })
 
+// 全局路由守卫 - 检查登录状态
+router.beforeEach((to, from, next) => {
+  // 需要登录的路由
+  const requiresAuth = to.path.startsWith('/teacher/')
+  
+  // 获取 token
+  const token = localStorage.getItem('token')
+  
+  if (requiresAuth && !token) {
+    // 需要登录但没有 token，跳转到登录页
+    next('/login')
+  } else if (to.path === '/login' && token) {
+    // 已登录但访问登录页，跳转到仪表盘
+    next('/teacher/dashboard')
+  } else {
+    // 正常访问
+    next()
+  }
+})
+
 export default router

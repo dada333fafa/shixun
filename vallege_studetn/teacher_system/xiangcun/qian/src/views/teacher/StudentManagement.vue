@@ -10,7 +10,7 @@
         <li><router-link to="/teacher/psychological">心理辅导</router-link></li>
         <li><router-link to="/teacher/ai-match">AI匹配</router-link></li>
         <li><router-link to="/teacher/match-management">匹配管理</router-link></li>
-        <li><router-link to="/login">退出登录</router-link></li>
+        <li><a href="#" @click.prevent="handleLogout">退出登录</a></li>
       </ul>
     </aside>
     
@@ -154,9 +154,17 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 
-const API_BASE_URL = 'http://localhost:3000/api/v1'
+const API_BASE_URL = '/api/v1'
 const router = useRouter()
 const searchQuery = ref('')
+
+// 退出登录
+const handleLogout = () => {
+  localStorage.removeItem('token')
+  localStorage.removeItem('user')
+  console.log('👋 已退出登录')
+  router.push('/login')
+}
 
 // 从 localStorage 获取用户信息
 const userInfo = ref(null)
@@ -176,8 +184,10 @@ onMounted(async () => {
   const userStr = localStorage.getItem('user')
   if (userStr) {
     userInfo.value = JSON.parse(userStr)
-    token.value = userInfo.value.token || ''
   }
+  
+  // 从 localStorage 单独获取 token
+  token.value = localStorage.getItem('token') || ''
   
   // 加载真实学生数据
   await loadStudents()

@@ -50,7 +50,6 @@
         </button>
         
         <div class="links">
-          <router-link to="/register">注册新账号</router-link>
           <router-link to="/forgot-password">忘记密码</router-link>
           <router-link to="/">返回首页</router-link>
         </div>
@@ -76,9 +75,6 @@ const loading = ref(false)
 const errorMessage = ref('')
 
 const roles = [
-  { value: 'teacher', icon: '👩‍🏫', label: '教育教师' },
-  { value: 'student', icon: '👨‍🎓', label: '儿童/学生' },
-  { value: 'parent', icon: '👨‍👩‍👧‍👦', label: '家长/监护人' },
   { value: 'admin', icon: '🔧', label: '管理员' }
 ]
 
@@ -87,28 +83,40 @@ const selectRole = (role) => {
 }
 
 const handleLogin = async () => {
+  console.log('登录函数被调用')
   errorMessage.value = ''
+  
+  console.log('表单数据:', form)
+  console.log('选择角色:', selectedRole.value)
   
   if (!form.username || !form.password) {
     errorMessage.value = '请输入用户名和密码'
+    console.log('验证失败：缺少用户名或密码')
     return
   }
   
   if (!selectedRole.value) {
     errorMessage.value = '请选择角色'
+    console.log('验证失败：未选择角色')
     return
   }
   
   try {
     loading.value = true
-    const result = await authAPI.login({
+    console.log('开始发送登录请求...')
+    const response = await authAPI.login({
       username: form.username,
       password: form.password,
       role: selectedRole.value
     })
     
+    console.log('登录响应:', response)
+    
+    const result = response.data
+    console.log('登录数据:', result)
+    
     if (result.status === 'success' && result.data.token) {
-      // 保存Token到localStorage（单独保存）
+      // 保存Token到localStorage
       localStorage.setItem('token', result.data.token)
       
       // 保存用户信息到localStorage
@@ -118,18 +126,17 @@ const handleLogin = async () => {
       
       // 根据角色跳转到相应的仪表盘
       const routes = {
-        teacher: '/teacher/dashboard',
-        student: '/student/dashboard',
-        parent: '/parent/dashboard',
         admin: '/admin/dashboard'
       }
       
+      console.log('登录成功，跳转到:', routes[selectedRole.value])
       router.push(routes[selectedRole.value])
     } else {
       errorMessage.value = result.message || '登录失败'
+      console.log('登录失败:', result.message)
     }
   } catch (error) {
-    errorMessage.value = error.message || '登录失败，请稍后重试'
+    errorMessage.value = error.response?.data?.message || error.message || '登录失败，请稍后重试'
     console.error('登录错误:', error)
   } finally {
     loading.value = false

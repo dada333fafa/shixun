@@ -30,7 +30,11 @@ const userSchema = new mongoose.Schema({
   QQ: String,
   WeChat: String,
   address: String,
-  avatar: String
+  avatar: String,
+  isActive: {
+    type: Boolean,
+    default: true
+  }
 }, {
   timestamps: true
 });

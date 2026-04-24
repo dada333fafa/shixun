@@ -1,46 +1,60 @@
 import { createRouter, createWebHistory } from 'vue-router'
 
+// 认证相关
+import Login from '../views/auth/Login.vue'
+import ForgotPassword from '../views/auth/ForgotPassword.vue'
+
+// 通用页面
+import Home from '../views/pages/Home.vue'
+import About from '../views/pages/About.vue'
+
 const routes = [
+  {
+    path: '/',
+    name: 'Home',
+    component: Home
+  },
+  {
+    path: '/about',
+    name: 'About',
+    component: About
+  },
   {
     path: '/login',
     name: 'Login',
-    component: () => import('../views/Login.vue')
+    component: Login
   },
   {
-    path: '/register',
-    name: 'Register',
-    component: () => import('../views/Register.vue')
+    path: '/forgot-password',
+    name: 'ForgotPassword',
+    component: ForgotPassword
   },
   {
-    path: '/',
-    redirect: '/dashboard'
-  },
-  {
-    path: '/dashboard',
-    name: 'Dashboard',
+    path: '/admin/dashboard',
+    name: 'AdminDashboard',
     component: () => import('../views/AdminDashboard.vue'),
     meta: { requiresAuth: true }
   },
   {
-    path: '/users',
+    path: '/admin/users',
     name: 'UserManagement',
     component: () => import('../views/UserManagement.vue'),
     meta: { requiresAuth: true }
   },
   {
-    path: '/content',
+    path: '/admin/content',
     name: 'ContentManagement',
     component: () => import('../views/ContentManagement.vue'),
     meta: { requiresAuth: true }
   },
   {
-    path: '/ai-config',
+    path: '/admin/ai-config',
     name: 'AIConfiguration',
     component: () => import('../views/AIConfiguration.vue'),
     meta: { requiresAuth: true }
   },
   {
-    path: '/settings',
+    path: '/admin/settings',
     name: 'SystemSettings',
     component: () => import('../views/SystemSettings.vue'),
     meta: { requiresAuth: true }

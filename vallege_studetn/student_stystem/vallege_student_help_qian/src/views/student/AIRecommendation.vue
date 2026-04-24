@@ -26,91 +26,130 @@
         </div>
       </header>
 
-      <!-- AI推荐说明 -->
+      <!-- AI智能匹配 -->
       <section class="recommendation-section">
-        <h2>🤖 AI个性化学习推荐</h2>
-        <p>基于您的学习情况、兴趣爱好和心理状态，AI系统为您智能推荐最适合的学习资源和辅导方案。</p>
+        <h2>🤖 AI智能教师匹配</h2>
+        <p>输入您的学习信息，AI系统将为您智能匹配最适合的辅导老师。</p>
         
-        <button class="btn-generate" @click="generateRecommendations" :disabled="loading">
-          {{ loading ? '生成中...' : '✨ 生成AI推荐' }}
-        </button>
+        <div class="match-form">
+          <div class="form-group">
+            <label for="grade">年级</label>
+            <select id="grade" v-model="matchForm.grade">
+              <option value="">请选择年级</option>
+              <option value="一年级">一年级</option>
+              <option value="二年级">二年级</option>
+              <option value="三年级">三年级</option>
+              <option value="四年级">四年级</option>
+              <option value="五年级">五年级</option>
+              <option value="六年级">六年级</option>
+              <option value="初一">初一</option>
+              <option value="初二">初二</option>
+              <option value="初三">初三</option>
+            </select>
+          </div>
+          
+          <div class="form-group">
+            <label for="learningNeeds">学习需求</label>
+            <textarea 
+              id="learningNeeds" 
+              v-model="matchForm.learningNeeds"
+              placeholder="请描述您的学习需求，例如：数学基础薄弱、需要提高英语成绩等"
+              rows="4"
+            ></textarea>
+          </div>
+          
+          <div class="form-group">
+            <label for="teacherPersonality">期望教师性格（选填）</label>
+            <textarea 
+              id="teacherPersonality" 
+              v-model="matchForm.teacherPersonality"
+              placeholder="请描述您期望的教师性格，例如：耐心细致、幽默风趣、严格认真、温和亲切等"
+              rows="3"
+            ></textarea>
+          </div>
+          
+          <button class="btn-generate" @click="generateMatch" :disabled="loading || !isFormValid">
+            {{ loading ? '匹配中...' : '✨ 开始AI匹配' }}
+          </button>
+        </div>
       </section>
 
-      <!-- 推荐结果 -->
-      <section v-if="recommendations.length > 0" class="recommendation-section">
-        <h2>📋 为您推荐的内容</h2>
+      <!-- 匹配结果 -->
+      <section v-if="matchedTeachers.length > 0" class="recommendation-section">
+        <h2>📋 为您推荐的老师</h2>
         
         <div class="recommendations-list">
           <div 
-            v-for="(rec, index) in recommendations" 
+            v-for="(teacher, index) in matchedTeachers" 
             :key="index"
             class="recommendation-card"
           >
             <div class="rec-header">
-              <div class="rec-icon">{{ getRecIcon(rec.type) }}</div>
+              <div class="rec-icon">👨‍🏫</div>
               <div class="rec-info">
-                <h3>{{ rec.title }}</h3>
-                <div class="rec-type">{{ getRecTypeName(rec.type) }}</div>
+                <h3>{{ teacher.name }}</h3>
+                <div class="rec-type">{{ teacher.subject }}</div>
               </div>
+              <div class="match-score">匹配度: {{ teacher.matchScore }}%</div>
             </div>
             
             <div class="rec-content">
-              <p>{{ rec.description }}</p>
+              <p><strong>教育背景：</strong>{{ teacher.education }}</p>
+              <p><strong>教学经验：</strong>{{ teacher.experience }}</p>
+              <p><strong>教师评分：</strong>{{ teacher.rating }}/5.0</p>
               
-              <div v-if="rec.details" class="rec-details">
-                <h4>详细说明：</h4>
-                <ul>
-                  <li v-for="(detail, idx) in rec.details" :key="idx">{{ detail }}</li>
-                </ul>
-              </div>
-              
-              <div v-if="rec.reason" class="rec-reason">
-                <strong>推荐理由：</strong>{{ rec.reason }}
+              <div v-if="teacher.reason" class="rec-reason">
+                <strong>推荐理由：</strong>{{ teacher.reason }}
               </div>
             </div>
             
             <div class="rec-actions">
-              <button v-if="rec.action" class="btn-action" @click="handleAction(rec)">
-                {{ rec.actionText || '查看详情' }}
+              <button class="btn-action" @click="requestTutoring(teacher)">
+                申请辅导
               </button>
             </div>
           </div>
         </div>
       </section>
 
-      <!-- 学习建议 -->
-      <section v-if="studySuggestions.length > 0" class="recommendation-section">
-        <h2>💡 学习建议</h2>
-        <div class="suggestions-list">
-          <div v-for="(suggestion, index) in studySuggestions" :key="index" class="suggestion-item">
-            <div class="suggestion-icon">💭</div>
-            <div class="suggestion-content">
-              <p>{{ suggestion }}</p>
-            </div>
-          </div>
-        </div>
+      <!-- 暂无匹配结果提示 -->
+      <section v-if="!loading && matchedTeachers.length === 0 && hasSearched" class="empty-state">
+        <div class="empty-icon">😕</div>
+        <div class="empty-text">未找到合适的老师</div>
+        <div class="empty-hint">请尝试调整您的学习需求，或联系管理员获取更多帮助</div>
       </section>
-
-      <!-- 暂无推荐提示 -->
-      <section v-if="!loading && recommendations.length === 0" class="empty-state">
+      
+      <section v-if="!loading && !hasSearched" class="empty-state">
         <div class="empty-icon">🤖</div>
-        <div class="empty-text">还没有生成AI推荐</div>
-        <div class="empty-hint">点击上方按钮，让AI为您生成个性化学习推荐</div>
+        <div class="empty-text">还没有进行AI匹配</div>
+        <div class="empty-hint">填写上方表单，让AI为您匹配最适合的老师</div>
       </section>
     </main>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { getCurrentUser } from '@/utils/api'
 
 const router = useRouter()
 const currentUser = ref(null)
 const loading = ref(false)
-const recommendations = ref([])
-const studySuggestions = ref([])
+const hasSearched = ref(false)
+const matchedTeachers = ref([])
+
+// 匹配表单
+const matchForm = ref({
+  grade: '',
+  learningNeeds: '',
+  teacherPersonality: ''
+})
+
+// 计算表单是否有效
+const isFormValid = computed(() => {
+  return matchForm.value.grade && matchForm.value.learningNeeds.trim()
+})
 
 onMounted(async () => {
   try {
@@ -122,117 +161,88 @@ onMounted(async () => {
   }
 })
 
-async function generateRecommendations() {
+async function generateMatch() {
+  if (!isFormValid.value) {
+    alert('请填写完整的年级和学习需求')
+    return
+  }
+  
   try {
     loading.value = true
+    hasSearched.value = true
     
-    // 模拟AI推荐生成（实际项目中应该调用后端API）
-    await new Promise(resolve => setTimeout(resolve, 1500))
+    // 调用后端AI匹配API
+    // 学生端 token 是单独保存的
+    const token = localStorage.getItem('token');
     
-    // 生成示例推荐
-    recommendations.value = [
-      {
-        type: 'teacher',
-        title: '推荐教师：李老师',
-        description: '根据您的数学学习情况，推荐您与李老师建立辅导关系。',
-        details: [
-          '李老师有8年数学教学经验',
-          '擅长小学数学和初中数学',
-          '教学风格耐心细致',
-          '学生评价优秀'
-        ],
-        reason: '您在数学方面需要加强，李老师的教学方法非常适合您',
-        action: 'viewTeacher',
-        actionText: '查看教师详情'
+    if (!token) {
+      alert('请先登录');
+      return;
+    }
+    
+    const response = await fetch('http://localhost:3000/api/v1/ai/match-student', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-auth-token': token
       },
-      {
-        type: 'resource',
-        title: '推荐学习资源：数学基础练习册',
-        description: '针对您当前的学习水平，这套练习册可以帮助您巩固基础知识。',
-        details: [
-          '包含100+道精选练习题',
-          '由浅入深，循序渐进',
-          '配有详细答案解析',
-          '适合自学使用'
-        ],
-        reason: '通过练习可以巩固课堂所学知识，提高解题能力',
-        action: 'downloadResource',
-        actionText: '下载资源'
-      },
-      {
-        type: 'method',
-        title: '学习方法：番茄工作法',
-        description: '建议您采用番茄工作法来提高学习效率，保持专注力。',
-        details: [
-          '每次专注学习25分钟',
-          '休息5分钟',
-          '每4个番茄钟后休息15-30分钟',
-          '有助于提高注意力和记忆力'
-        ],
-        reason: '这种方法特别适合注意力容易分散的学生',
-        action: null,
-        actionText: null
-      },
-      {
-        type: 'psychological',
-        title: '心理调适建议',
-        description: '根据最近的评估，建议您多参加户外活动，保持积极心态。',
-        details: [
-          '每天保证30分钟户外运动',
-          '与同学朋友多交流',
-          '培养一项兴趣爱好',
-          '保持规律作息'
-        ],
-        reason: '良好的心理状态有助于提高学习效果',
-        action: 'goPsychological',
-        actionText: '进行心理评估'
+      body: JSON.stringify({
+        grade: matchForm.value.grade,
+        learningNeeds: matchForm.value.learningNeeds,
+        teacherPersonality: matchForm.value.teacherPersonality
+      })
+    })
+    
+    if (!response.ok) {
+      throw new Error('匹配失败')
+    }
+    
+    const data = await response.json()
+    
+    if (data.success && data.matchedTeachers) {
+      matchedTeachers.value = data.matchedTeachers
+      if (matchedTeachers.value.length === 0) {
+        alert('未找到合适的老师，请尝试调整您的需求')
+      } else {
+        alert(`找到 ${matchedTeachers.value.length} 位合适的老师！`)
       }
-    ]
-    
-    studySuggestions.value = [
-      '制定合理的学习计划，每天固定时间复习',
-      '遇到不懂的问题及时向老师请教',
-      '多做练习，熟能生巧',
-      '保持良好的学习习惯，课前预习课后复习',
-      '适当放松，劳逸结合'
-    ]
-    
-    alert('AI推荐生成成功！')
+    } else {
+      throw new Error(data.message || '匹配失败')
+    }
   } catch (error) {
-    console.error('生成推荐失败:', error)
-    alert('生成推荐失败: ' + error.message)
+    console.error('AI匹配失败:', error)
+    alert('匹配失败: ' + error.message)
   } finally {
     loading.value = false
   }
 }
 
-function getRecIcon(type) {
-  const icons = {
-    'teacher': '👨‍🏫',
-    'resource': '📚',
-    'method': '💡',
-    'psychological': '🧠'
-  }
-  return icons[type] || '⭐'
-}
-
-function getRecTypeName(type) {
-  const names = {
-    'teacher': '教师推荐',
-    'resource': '资源推荐',
-    'method': '方法推荐',
-    'psychological': '心理建议'
-  }
-  return names[type] || '其他'
-}
-
-function handleAction(rec) {
-  if (rec.action === 'viewTeacher') {
-    router.push('/student/teacher-selection')
-  } else if (rec.action === 'downloadResource') {
-    router.push('/student/resources')
-  } else if (rec.action === 'goPsychological') {
-    router.push('/student/psychological')
+async function requestTutoring(teacher) {
+  try {
+    const response = await fetch('http://localhost:3000/api/matches/request', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-auth-token': localStorage.getItem('token')
+      },
+      body: JSON.stringify({
+        teacherId: teacher.id,
+        message: `您好，我对您的${teacher.subject}教学很感兴趣，希望能得到您的辅导。`
+      })
+    })
+    
+    if (!response.ok) {
+      throw new Error('申请失败')
+    }
+    
+    const data = await response.json()
+    alert('辅导申请已发送，等待教师确认')
+    
+    // 跳转到匹配管理页面
+    router.push('/student/match')
+  } catch (error) {
+    console.error('申请辅导失败:', error)
+    alert('申请失败: ' + error.message)
   }
 }
 
@@ -355,6 +365,46 @@ function handleLogout() {
   margin-bottom: 20px;
 }
 
+.match-form {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.form-group label {
+  font-weight: bold;
+  color: #333;
+  font-size: 1em;
+}
+
+.form-group select,
+.form-group textarea {
+  padding: 12px;
+  border: 2px solid #e0e0e0;
+  border-radius: 8px;
+  font-size: 1em;
+  font-family: inherit;
+  transition: all 0.3s ease;
+}
+
+.form-group select:focus,
+.form-group textarea:focus {
+  outline: none;
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.form-group textarea {
+  resize: vertical;
+  min-height: 100px;
+}
+
 .btn-generate {
   width: 100%;
   padding: 15px;
@@ -401,6 +451,7 @@ function handleLogout() {
   align-items: center;
   gap: 15px;
   margin-bottom: 15px;
+  position: relative;
 }
 
 .rec-icon {
@@ -419,6 +470,19 @@ function handleLogout() {
   display: inline-block;
   padding: 2px 8px;
   border-radius: 10px;
+}
+
+.match-score {
+  position: absolute;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  color: white;
+  padding: 8px 15px;
+  border-radius: 20px;
+  font-weight: bold;
+  font-size: 0.9em;
 }
 
 .rec-content {

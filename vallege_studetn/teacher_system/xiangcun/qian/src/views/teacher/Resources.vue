@@ -12,7 +12,7 @@
           <router-link to="/teacher/chat">聊天</router-link>
           <router-link to="/teacher/resources">资源管理</router-link>
           <router-link to="/teacher/psychological">心理支持</router-link>
-          <router-link to="/">退出</router-link>
+          <a href="#" @click.prevent="handleLogout">退出</a>
         </nav>
         <div class="user-info">
           <span>{{ userDisplayName }}</span>
@@ -214,8 +214,10 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 
-const API_BASE_URL = 'http://localhost:3000/api/v1'
+const router = useRouter()
+const API_BASE_URL = '/api/v1'
 
 // 从 localStorage 获取用户信息
 const userInfo = ref(null)
@@ -226,8 +228,10 @@ onMounted(async () => {
   const userStr = localStorage.getItem('user')
   if (userStr) {
     userInfo.value = JSON.parse(userStr)
-    token.value = userInfo.value.token || ''
   }
+  
+  // 从 localStorage 单独获取 token
+  token.value = localStorage.getItem('token') || ''
   
   // 从数据库加载资源数据
   await loadResources()
@@ -633,6 +637,14 @@ const handleDelete = async (resource) => {
       console.error('删除错误:', error)
     }
   }
+}
+
+// 退出登录
+const handleLogout = () => {
+  localStorage.removeItem('token')
+  localStorage.removeItem('user')
+  console.log('👋 已退出登录')
+  router.push('/login')
 }
 </script>
 

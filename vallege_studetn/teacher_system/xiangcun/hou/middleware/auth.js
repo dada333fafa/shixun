@@ -21,7 +21,12 @@ exports.protect = async (req, res, next) => {
 
   try {
     // 验证token
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'rural_education_secret_key_2026');
+    const jwtSecret = process.env.JWT_SECRET || 'rural_education_secret_key_2026';
+    console.log('🔑 JWT Secret:', jwtSecret.substring(0, 10) + '...');
+    console.log('🎫 Token:', token.substring(0, 20) + '...');
+    
+    const decoded = jwt.verify(token, jwtSecret);
+    console.log('✅ Token验证成功, decoded:', decoded);
 
     // 获取用户信息
     req.user = await User.findById(decoded.id).select('-password');
@@ -35,6 +40,8 @@ exports.protect = async (req, res, next) => {
 
     next();
   } catch (error) {
+    console.error('❌ Token验证失败:', error.message);
+    console.error('错误详情:', error);
     return res.status(401).json({
       status: 'error',
       message: '认证失败,请重新登录'

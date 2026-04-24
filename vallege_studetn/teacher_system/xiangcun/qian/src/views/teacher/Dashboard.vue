@@ -10,7 +10,7 @@
         <li><router-link to="/teacher/psychological">心理辅导</router-link></li>
         <li><router-link to="/teacher/ai-match">AI匹配</router-link></li>
         <li><router-link to="/teacher/match-management">匹配管理</router-link></li>
-        <li><router-link to="/login">退出登录</router-link></li>
+        <li><a href="#" @click.prevent="handleLogout">退出登录</a></li>
       </ul>
     </aside>
     
@@ -99,8 +99,10 @@ onMounted(async () => {
   const userStr = localStorage.getItem('user')
   if (userStr) {
     userInfo.value = JSON.parse(userStr)
-    token.value = userInfo.value.token || ''
   }
+  
+  // 从 localStorage 单独获取 token
+  token.value = localStorage.getItem('token') || ''
   
   // 加载仪表盘数据
   await loadDashboard()
@@ -176,6 +178,17 @@ const handleAction = (student) => {
   } else {
     alert('确认学生: ' + student.name)
   }
+}
+
+// 退出登录
+const handleLogout = () => {
+  // 清除 localStorage 中的 token 和用户信息
+  localStorage.removeItem('token')
+  localStorage.removeItem('user')
+  console.log('👋 已退出登录，清除所有本地数据')
+  
+  // 跳转到登录页
+  router.push('/login')
 }
 </script>
 

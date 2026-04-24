@@ -2,11 +2,11 @@
   <div class="sidebar">
     <h2>管理员中心</h2>
     <ul class="nav-menu">
-      <li><router-link to="/dashboard" :class="{ active: currentRoute === 'dashboard' }">仪表盘</router-link></li>
-      <li><router-link to="/users" :class="{ active: currentRoute === 'users' }">用户管理</router-link></li>
-      <li><router-link to="/content" :class="{ active: currentRoute === 'content' }">内容管理</router-link></li>
-      <li><router-link to="/ai-config" :class="{ active: currentRoute === 'ai-config' }">AI配置</router-link></li>
-      <li><router-link to="/settings" :class="{ active: currentRoute === 'settings' }">系统设置</router-link></li>
+      <li><router-link to="/admin/dashboard" :class="{ active: currentRoute === 'dashboard' }">仪表盘</router-link></li>
+      <li><router-link to="/admin/users" :class="{ active: currentRoute === 'users' }">用户管理</router-link></li>
+      <li><router-link to="/admin/content" :class="{ active: currentRoute === 'content' }">内容管理</router-link></li>
+      <li><router-link to="/admin/ai-config" :class="{ active: currentRoute === 'ai-config' }">AI配置</router-link></li>
+      <li><router-link to="/admin/settings" :class="{ active: currentRoute === 'settings' }">系统设置</router-link></li>
       <li><a href="#" @click.prevent="handleLogout">退出登录</a></li>
     </ul>
   </div>
@@ -21,11 +21,11 @@ const router = useRouter()
 
 const currentRoute = computed(() => {
   const path = route.path
-  if (path === '/dashboard') return 'dashboard'
-  if (path === '/users') return 'users'
-  if (path === '/content') return 'content'
-  if (path === '/ai-config') return 'ai-config'
-  if (path === '/settings') return 'settings'
+  if (path === '/admin/dashboard') return 'dashboard'
+  if (path === '/admin/users') return 'users'
+  if (path === '/admin/content') return 'content'
+  if (path === '/admin/ai-config') return 'ai-config'
+  if (path === '/admin/settings') return 'settings'
   return ''
 })
 

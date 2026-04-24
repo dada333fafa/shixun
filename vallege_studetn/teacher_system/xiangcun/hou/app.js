@@ -2,10 +2,18 @@ const express = require('express');
 const cors = require('cors');
 const dotenv = require('dotenv');
 const path = require('path');
+const fs = require('fs');
 const connectDB = require('./config/db');
 
 // 加载环境变量
 dotenv.config();
+
+// 创建上传目录
+const uploadDir = path.join(__dirname, 'uploads', 'resources');
+if (!fs.existsSync(uploadDir)) {
+  fs.mkdirSync(uploadDir, { recursive: true });
+  console.log('📁 创建上传目录: uploads/resources');
+}
 
 // 连接数据库
 connectDB();
@@ -40,9 +48,11 @@ app.use('/api/counselors', require('./routes/counselorRoutes'));
 app.use('/api/v1/psychological-schedules', require('./routes/psychologicalScheduleRoutes'));
 app.use('/api/v1/learning-progress', require('./routes/learningProgressRoutes'));
 app.use('/api/v1/teacher-evaluations', require('./routes/teacherEvaluations'));
+app.use('/api/v1/admin', require('./routes/adminRoutes')); // 管理员路由
 
 // 学生端特有路由 (兼容 /api 前缀) - 必须在家长端路由之前注册
-app.use('/api/ai', require('./routes/aiRoutes'));
+app.use('/api/ai', require('./routes/aiRoutes')); // 旧版AI路由（兼容）
+app.use('/api/v1/ai', require('./routes/aiRoutes')); // 新版AI路由（统一）
 app.use('/api/psychological', require('./routes/psychologicalRoutes'));
 app.use('/api/matches', require('./routes/matchRoutes')); // 匹配路由（包含家长确认接口）
 app.use('/api/resources', require('./routes/teachingResources'));

@@ -189,7 +189,7 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import Sidebar from '../components/Sidebar.vue'
-import axios from 'axios'
+import { adminAPI } from '../api'
 
 const userName = ref('管理员')
 const userInitial = ref('管')
@@ -232,19 +232,26 @@ const loadUsers = async () => {
   try {
     const params = {
       page: currentPage.value,
-      limit: pageSize,
-      ...filters.value
+      limit: pageSize
     }
-    const response = await axios.get('/api/users', { params })
-    users.value = response.data.users
-    totalPages.value = Math.ceil(response.data.total / pageSize)
+    
+    if (filters.value.search) {
+      params.search = filters.value.search
+    }
+    if (filters.value.role) {
+      params.role = filters.value.role
+    }
+    if (filters.value.status) {
+      params.status = filters.value.status
+    }
+    
+    const response = await adminAPI.getUsers(params)
+    if (response.data.success) {
+      users.value = response.data.users
+      totalPages.value = response.data.totalPages
+    }
   } catch (error) {
     console.error('加载用户失败:', error)
-    if (error.response?.status === 403) {
-      alert('登录已过期或权限不足，请重新登录')
-      localStorage.clear()
-      window.location.href = '/login'
-    }
   }
 }
 
@@ -267,12 +274,21 @@ const changePage = (page) => {
 
 const toggleUserStatus = async (user) => {
   try {
-    await axios.put(`/api/users/${user._id}/status`, {
-      isActive: !user.isActive
-    })
-    user.isActive = !user.isActive
+    const action = user.isActive ? '禁用' : '启用'
+    if (!confirm(`确定要${action}用户 "${user.name}" 吗？`)) {
+      return
+    }
+    
+    const response = await adminAPI.updateUserStatus(user._id, { isActive: !user.isActive })
+    if (response.data.success) {
+      user.isActive = !user.isActive
+      alert(`${action}成功！`)
+    } else {
+      alert(response.data.message || '操作失败')
+    }
   } catch (error) {
-    alert('操作失败')
+    console.error('操作失败:', error)
+    alert(error.response?.data?.message || '操作失败，请稍后重试')
   }
 }
 
@@ -342,29 +358,43 @@ const handleSubmit = async () => {
   try {
     if (isEditMode.value) {
       // 编辑用户
-      await axios.put(`/api/users/${editingUserId.value}`, {
+      const updateData = {
         name: userForm.value.name,
         email: userForm.value.email,
         phone: userForm.value.phone,
         role: userForm.value.role
-      })
-      alert('用户信息更新成功')
+      }
+      
+      const response = await adminAPI.updateUser(editingUserId.value, updateData)
+      if (response.data.success) {
+        alert('编辑成功！')
+        closeModal()
+        loadUsers() // 重新加载用户列表
+      } else {
+        errorMessage.value = response.data.message || '编辑失败'
+      }
     } else {
       // 添加新用户
-      await axios.post('/api/users', {
+      const userData = {
         username: userForm.value.username,
+        password: userForm.value.password,
         name: userForm.value.name,
         email: userForm.value.email,
         phone: userForm.value.phone,
-        role: userForm.value.role,
-        password: userForm.value.password
-      })
-      alert('用户添加成功')
+        role: userForm.value.role
+      }
+      
+      const response = await adminAPI.addUser(userData)
+      if (response.data.success) {
+        alert('添加成功！')
+        closeModal()
+        loadUsers() // 重新加载用户列表
+      } else {
+        errorMessage.value = response.data.message || '添加失败'
+      }
     }
-    
-    closeModal()
-    loadUsers() // 重新加载用户列表
   } catch (error) {
+    console.error('操作失败:', error)
     errorMessage.value = error.response?.data?.message || '操作失败，请稍后重试'
   } finally {
     loading.value = false
