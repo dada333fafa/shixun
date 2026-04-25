@@ -18,7 +18,11 @@ const resourceSchema = new mongoose.Schema({
   },
   filePath: String,
   fileSize: Number,
-  fileName: String
+  fileName: String,
+  downloadPassword: {
+    type: String,
+    default: null
+  }
 }, {
   timestamps: true
 });

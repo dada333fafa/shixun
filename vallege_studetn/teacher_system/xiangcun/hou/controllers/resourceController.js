@@ -5,7 +5,7 @@ const Teacher = require('../models/Teacher');
 // 上传教学资源
 exports.uploadResource = async (req, res) => {
   try {
-    const { title, description, resource_type } = req.body;
+    const { title, description, resource_type, downloadPassword } = req.body;
 
     if (!title || !resource_type) {
       return res.status(400).json({
@@ -56,7 +56,8 @@ exports.uploadResource = async (req, res) => {
       resourceType: resourceTypeEn,
       filePath: req.file ? '/uploads/resources/' + req.file.filename : '',
       fileSize: req.file ? req.file.size : 0,
-      fileName: fileName || (req.file ? req.file.originalname : '')
+      fileName: fileName || (req.file ? req.file.originalname : ''),
+      downloadPassword: downloadPassword || null
     });
 
     console.log('✅ 资源已保存到数据库:', {
@@ -79,6 +80,7 @@ exports.uploadResource = async (req, res) => {
         file_path: resource.filePath,
         file_name: resource.fileName,
         file_size: resource.fileSize,
+        has_password: !!resource.downloadPassword,
         upload_date: resource.createdAt,
         teacher_id: teacher._id
       }
@@ -180,6 +182,7 @@ exports.getResources = async (req, res) => {
         fileName: r.fileName || '未知文件',
         file_size: r.fileSize || 0,
         fileSize: r.fileSize || 0,
+        has_password: !!r.downloadPassword,
         upload_date: r.createdAt,
         createdAt: r.createdAt,
         updatedAt: r.updatedAt
@@ -475,6 +478,81 @@ exports.shareResource = async (req, res) => {
     });
   } catch (error) {
     console.error('分享资源错误:', error);
+    res.status(500).json({
+      status: 'error',
+      message: '服务器错误',
+      error: error.message
+    });
+  }
+};
+
+// 验证资源下载密码
+exports.verifyDownloadPassword = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { password } = req.body;
+
+    console.log('\n========== 验证资源密码 ==========');
+    console.log('资源ID:', id);
+    console.log('用户ID:', req.user?.id);
+    console.log('用户角色:', req.user?.role);
+
+    if (!password) {
+      return res.status(400).json({
+        status: 'error',
+        message: '请输入密码'
+      });
+    }
+
+    const resource = await Resource.findById(id);
+    
+    if (!resource) {
+      console.log('❌ 资源不存在:', id);
+      return res.status(404).json({
+        status: 'error',
+        message: '资源不存在'
+      });
+    }
+
+    console.log('✅ 找到资源:', resource.title);
+    console.log('资源密码设置:', resource.downloadPassword ? '已设置' : '未设置');
+
+    // 如果没有设置密码，直接通过
+    if (!resource.downloadPassword) {
+      console.log('✅ 该资源不需要密码');
+      return res.json({
+        status: 'success',
+        message: '验证通过',
+        data: {
+          verified: true,
+          file_path: resource.filePath
+        }
+      });
+    }
+
+    // 验证密码
+    if (resource.downloadPassword === password) {
+      console.log('✅ 密码验证成功');
+      return res.json({
+        status: 'success',
+        message: '验证通过',
+        data: {
+          verified: true,
+          file_path: resource.filePath
+        }
+      });
+    } else {
+      console.log('❌ 密码错误');
+      return res.status(401).json({
+        status: 'error',
+        message: '密码错误',
+        data: {
+          verified: false
+        }
+      });
+    }
+  } catch (error) {
+    console.error('❌ 验证密码错误:', error);
     res.status(500).json({
       status: 'error',
       message: '服务器错误',

@@ -24,6 +24,13 @@ const teachingResourceSchema = new mongoose.Schema({
   },
   fileName: {
     type: String
+  },
+  hasPassword: {
+    type: Boolean,
+    default: false
+  },
+  downloadPassword: {
+    type: String
   }
 }, {
   timestamps: true

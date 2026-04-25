@@ -234,4 +234,62 @@ router.post('/:resourceId/download', auth, async (req, res) => {
   }
 });
 
+// 验证资源下载密码
+router.post('/:resourceId/verify-password', auth, async (req, res) => {
+  try {
+    const { resourceId } = req.params;
+    const { password } = req.body;
+    
+    console.log('\n========== 验证资源密码 ==========');
+    console.log('资源ID:', resourceId);
+    console.log('用户ID:', req.user._id);
+    
+    // 验证资源是否存在
+    const resource = await TeachingResource.findById(resourceId);
+    
+    if (!resource) {
+      return res.status(404).json({ 
+        status: 'error',
+        message: '资源不存在' 
+      });
+    }
+    
+    // 检查资源是否设置了密码
+    if (!resource.hasPassword) {
+      return res.status(400).json({ 
+        status: 'error',
+        message: '该资源不需要密码' 
+      });
+    }
+    
+    // 验证密码
+    if (!password) {
+      return res.status(400).json({ 
+        status: 'error',
+        message: '请输入密码' 
+      });
+    }
+    
+    if (resource.downloadPassword === password) {
+      console.log('密码验证成功');
+      return res.json({ 
+        status: 'success',
+        message: '密码验证成功' 
+      });
+    } else {
+      console.log('密码验证失败');
+      return res.status(401).json({ 
+        status: 'error',
+        message: '密码错误' 
+      });
+    }
+  } catch (err) {
+    console.error('验证密码错误:', err.message);
+    res.status(500).json({ 
+      status: 'error',
+      message: '服务器错误: ' + err.message 
+    });
+  }
+});
+
 module.exports = router;

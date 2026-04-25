@@ -8,7 +8,8 @@ const {
   downloadResource,
   updateResource,
   deleteResource,
-  shareResource
+  shareResource,
+  verifyDownloadPassword
 } = require('../controllers/resourceController');
 const { protect, authorize } = require('../middleware/auth');
 
@@ -36,10 +37,18 @@ router.use(protect);
 
 // 添加调试日志
 router.use((req, res, next) => {
-  console.log('🔍 资源路由 - 方法:', req.method, '路径:', req.path);
+  console.log('===========================================');
+  console.log('🔍 进入资源路由中间件');
+  console.log('📍 完整路径:', req.originalUrl);
+  console.log('📍 相对路径:', req.path);
+  console.log('📍 请求方法:', req.method);
   console.log('👤 用户角色:', req.user?.role, '用户ID:', req.user?.id);
+  console.log('===========================================');
   next();
 });
+
+// 特殊路由 - 必须在 :id 路由之前
+router.post('/:id/verify-password', verifyDownloadPassword);  // 验证下载密码
 
 // GET 接口 - 学生和老师都能访问（查看资源）
 router.get('/', getResources);

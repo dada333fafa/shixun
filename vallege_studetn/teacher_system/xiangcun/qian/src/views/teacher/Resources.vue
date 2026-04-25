@@ -87,6 +87,16 @@
               已选择: {{ uploadForm.fileName }} ({{ uploadForm.fileSize }})
             </div>
           </div>
+          <div class="form-group">
+            <label>下载密码（可选）</label>
+            <input 
+              type="password" 
+              v-model="uploadForm.downloadPassword" 
+              placeholder="设置下载密码，留空则无需密码"
+              class="form-input"
+            >
+            <p class="form-hint">💡 设置后学生需要输入密码才能下载此资源</p>
+          </div>
         </div>
         <div class="modal-footer">
           <button class="btn btn-cancel" @click="closeUploadDialog">取消</button>
@@ -267,7 +277,8 @@ const uploadForm = ref({
   type: '课件',
   file: null,
   fileName: '',
-  fileSize: ''
+  fileSize: '',
+  downloadPassword: ''
 })
 
 // 编辑对话框
@@ -370,7 +381,8 @@ const closeUploadDialog = () => {
     type: '课件',
     file: null,
     fileName: '',
-    fileSize: ''
+    fileSize: '',
+    downloadPassword: ''
   }
   if (fileInput.value) {
     fileInput.value.value = ''
@@ -413,6 +425,10 @@ const submitUpload = async () => {
     const encodedFilename = btoa(unescape(encodeURIComponent(originalName)))
     formData.append('original_filename', encodedFilename)
     formData.append('file', uploadForm.value.file)
+    // 添加下载密码（如果有）
+    if (uploadForm.value.downloadPassword) {
+      formData.append('downloadPassword', uploadForm.value.downloadPassword)
+    }
     
     const response = await fetch(`${API_BASE_URL}/resources`, {
       method: 'POST',

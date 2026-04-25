@@ -55,7 +55,6 @@ app.use('/api/ai', require('./routes/aiRoutes')); // 旧版AI路由（兼容）
 app.use('/api/v1/ai', require('./routes/aiRoutes')); // 新版AI路由（统一）
 app.use('/api/psychological', require('./routes/psychologicalRoutes'));
 app.use('/api/matches', require('./routes/matchRoutes')); // 匹配路由（包含家长确认接口）
-app.use('/api/resources', require('./routes/teachingResources'));
 app.use('/api/users', require('./routes/authRoutes')); // 学生端注册登录
 
 // 家长端消息路由（兼容 /api/messages 前缀）

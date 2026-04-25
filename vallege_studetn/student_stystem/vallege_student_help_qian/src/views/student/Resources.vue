@@ -88,8 +88,9 @@
           <div class="resource-tags">
             <span class="tag">{{ getResourceTypeName(resource.resourceType) }}</span>
             <span class="tag">{{ formatDate(resource.createdAt) }}</span>
+            <span v-if="resource.has_password" class="tag password-tag">🔒 需要密码</span>
           </div>
-          <button class="btn-download" @click="handleDownload(resource)">
+          <button class="btn-download" @click="handleDownloadClick(resource)">
             {{ getResourceIcon(resource.resourceType) }} 下载资源
           </button>
         </div>
@@ -101,6 +102,35 @@
         </div>
       </div>
     </main>
+
+    <!-- 密码输入对话框 -->
+    <div v-if="showPasswordDialog" class="password-dialog-overlay" @click="closePasswordDialog">
+      <div class="password-dialog" @click.stop>
+        <div class="password-dialog-header">
+          <h3>🔒 资源下载密码验证</h3>
+          <button class="close-btn" @click="closePasswordDialog">&times;</button>
+        </div>
+        <div class="password-dialog-body">
+          <p class="resource-title">{{ currentResource?.title }}</p>
+          <p class="password-hint">该资源需要输入密码才能下载</p>
+          <input 
+            type="password" 
+            v-model="downloadPassword" 
+            placeholder="请输入下载密码"
+            class="password-input"
+            @keyup.enter="verifyPassword"
+            ref="passwordInputRef"
+          >
+          <p v-if="passwordError" class="error-message">{{ passwordError }}</p>
+        </div>
+        <div class="password-dialog-footer">
+          <button class="btn-cancel" @click="closePasswordDialog">取消</button>
+          <button class="btn-confirm" @click="verifyPassword" :disabled="verifying">
+            {{ verifying ? '验证中...' : '确认下载' }}
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -117,6 +147,14 @@ const filteredResources = ref([])
 const searchKeyword = ref('')
 const subjectFilter = ref('')
 const typeFilter = ref('')
+
+// 密码对话框相关
+const showPasswordDialog = ref(false)
+const currentResource = ref(null)
+const downloadPassword = ref('')
+const passwordError = ref('')
+const verifying = ref(false)
+const passwordInputRef = ref(null)
 
 onMounted(async () => {
   try {
@@ -211,6 +249,78 @@ function formatDate(dateString) {
   return `${year}-${month}-${day}`
 }
 
+// 点击下载按钮
+function handleDownloadClick(resource) {
+  // 如果有密码，弹出密码输入框
+  if (resource.has_password) {
+    currentResource.value = resource
+    downloadPassword.value = ''
+    passwordError.value = ''
+    showPasswordDialog.value = true
+    // 聚焦输入框
+    setTimeout(() => {
+      if (passwordInputRef.value) {
+        passwordInputRef.value.focus()
+      }
+    }, 100)
+  } else {
+    // 没有密码，直接下载
+    handleDownload(resource)
+  }
+}
+
+// 验证密码
+async function verifyPassword() {
+  if (!downloadPassword.value.trim()) {
+    passwordError.value = '请输入密码'
+    return
+  }
+
+  try {
+    verifying.value = true
+    passwordError.value = ''
+
+    const response = await fetch(`http://localhost:3000/api/v1/resources/${currentResource.value._id || currentResource.value.id}/verify-password`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${localStorage.getItem('token')}`
+      },
+      body: JSON.stringify({
+        password: downloadPassword.value
+      })
+    })
+
+    const data = await response.json()
+
+    if (data.status === 'success') {
+      // 密码正确，先保存资源引用
+      const resourceToDownload = currentResource.value
+      // 关闭对话框
+      closePasswordDialog()
+      // 下载资源
+      handleDownload(resourceToDownload)
+    } else {
+      // 密码错误
+      passwordError.value = data.message || '密码错误'
+    }
+  } catch (error) {
+    console.error('验证密码失败:', error)
+    passwordError.value = '验证失败，请重试'
+  } finally {
+    verifying.value = false
+  }
+}
+
+// 关闭密码对话框
+function closePasswordDialog() {
+  showPasswordDialog.value = false
+  currentResource.value = null
+  downloadPassword.value = ''
+  passwordError.value = ''
+}
+
+// 执行下载（原handleDownload逻辑）
 async function handleDownload(resource) {
   try {
     console.log('下载资源:', resource)
@@ -230,22 +340,14 @@ async function handleDownload(resource) {
     const downloadUrl = `http://localhost:3000${cleanPath}`
     console.log('下载URL:', downloadUrl)
     
-    // 使用 fetch 获取文件内容
-    const response = await fetch(downloadUrl)
-    if (!response.ok) {
-      throw new Error('下载失败: ' + response.status)
-    }
-    
-    const blob = await response.blob()
-    const url = window.URL.createObjectURL(blob)
+    // 直接使用浏览器下载
     const link = document.createElement('a')
-    link.href = url
-    // 直接使用原始文件名
+    link.href = downloadUrl
     link.download = resource.file_name || resource.fileName || resource.title || 'download'
+    link.target = '_blank'
     document.body.appendChild(link)
     link.click()
     document.body.removeChild(link)
-    window.URL.revokeObjectURL(url)
     console.log('下载成功:', resource.title)
   } catch (error) {
     console.error('下载失败:', error)
@@ -539,5 +641,158 @@ function handleLogout() {
   .resources-grid {
     grid-template-columns: 1fr;
   }
+}
+
+/* 密码对话框样式 */
+.password-dialog-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.password-dialog {
+  background: white;
+  border-radius: 12px;
+  width: 90%;
+  max-width: 450px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+  animation: slideIn 0.3s ease;
+}
+
+@keyframes slideIn {
+  from {
+    transform: translateY(-20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.password-dialog-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.password-dialog-header h3 {
+  margin: 0;
+  color: #333;
+  font-size: 1.2em;
+}
+
+.close-btn {
+  background: none;
+  border: none;
+  font-size: 1.8em;
+  cursor: pointer;
+  color: #999;
+  line-height: 1;
+  padding: 0;
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.close-btn:hover {
+  color: #333;
+}
+
+.password-dialog-body {
+  padding: 25px 20px;
+}
+
+.resource-title {
+  font-weight: bold;
+  color: #4CAF50;
+  margin: 0 0 10px 0;
+  font-size: 1.1em;
+}
+
+.password-hint {
+  color: #666;
+  margin: 0 0 15px 0;
+  font-size: 0.9em;
+}
+
+.password-input {
+  width: 100%;
+  padding: 12px;
+  border: 2px solid #e0e0e0;
+  border-radius: 8px;
+  font-size: 1em;
+  transition: all 0.3s;
+  box-sizing: border-box;
+}
+
+.password-input:focus {
+  outline: none;
+  border-color: #4CAF50;
+  box-shadow: 0 0 0 3px rgba(76, 175, 80, 0.1);
+}
+
+.error-message {
+  color: #f44336;
+  margin: 10px 0 0 0;
+  font-size: 0.85em;
+}
+
+.password-dialog-footer {
+  padding: 15px 20px;
+  border-top: 1px solid #e0e0e0;
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.btn-cancel,
+.btn-confirm {
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-size: 0.95em;
+  cursor: pointer;
+  transition: all 0.3s;
+  border: none;
+}
+
+.btn-cancel {
+  background-color: #f5f5f5;
+  color: #666;
+}
+
+.btn-cancel:hover {
+  background-color: #e0e0e0;
+}
+
+.btn-confirm {
+  background-color: #4CAF50;
+  color: white;
+}
+
+.btn-confirm:hover {
+  background-color: #45a049;
+}
+
+.btn-confirm:disabled {
+  background-color: #ccc;
+  cursor: not-allowed;
+}
+
+.password-tag {
+  background-color: #fff3cd;
+  color: #856404;
+  border: 1px solid #ffeaa7;
 }
 </style>

@@ -98,11 +98,11 @@ router.beforeEach((to, from, next) => {
   if (requiresAuth && !token) {
     // 需要登录但没有 token，跳转到登录页
     next('/login')
-  } else if (to.path === '/login' && token) {
-    // 已登录但访问登录页，跳转到仪表盘
-    next('/teacher/dashboard')
+  } else if (requiresAuth && token) {
+    // 已登录且访问教师端页面，正常访问
+    next()
   } else {
-    // 正常访问
+    // 访问公共页面（首页、登录页、注册页等），正常访问
     next()
   }
 })
